@@ -34,6 +34,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Free space for emulator userdata
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          df -h /
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -52,4 +56,7 @@ jobs:
           api-level: 36
           target: google_apis
           arch: x86_64
+          pre-emulator-launch-script: |
+            df -h /
+            test "$(df --output=avail -k / | tail -1)" -ge 8388608
           script: bash ./gradlew connectedDebugAndroidTest --no-daemon

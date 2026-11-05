@@ -6,4 +6,11 @@
     <string name="loading_destination">목적지를 불러오는 중…</string>
     <string name="empty_destination">설정된 목적지가 없습니다.</string>
     <string name="destination_error">목적지를 불러오지 못했습니다. 다시 시도해 주세요.</string>
+    <string name="pleos_notice">Pleos 내비게이션 목적지 · 목적지 변경을 자동으로 반영합니다.</string>
+    <string name="load_pleos_destination">실제 목적지 다시 가져오기</string>
+    <string name="destination_coordinates">위도 %1$.6f · 경도 %2$.6f</string>
+    <string name="destination_connection_error">Pleos 내비게이션에 연결하지 못했습니다. Pleos 환경에서 다시 시도해 주세요.</string>
+    <string name="destination_timeout">목적지 응답 시간이 초과됐습니다. 내비게이션을 확인하고 다시 시도해 주세요.</string>
+    <string name="destination_permission_error">목적지 조회 권한을 확인해 주세요.</string>
+    <string name="destination_invalid_data">내비게이션 목적지 좌표가 올바르지 않습니다.</string>
 </resources>
