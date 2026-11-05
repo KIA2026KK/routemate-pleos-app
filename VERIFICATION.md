@@ -8,3 +8,29 @@
 - 로컬 API 36 에뮬레이터는 디스크 공간 부족으로 실행 실패. 로컬 기기 테스트는 미실행.
 - GitHub Actions에 별도 API 36 에뮬레이터 UI 테스트 추가. 실행 결과는 PR checks에서 확인.
 - 실제 Pleos 목적지 및 LiveKit 통화는 구현/검증하지 않았음.
+
+## Pleos 목적지 어댑터 검증 — 2026-11-05
+
+- NaviHelper 3.0.5 및 navi-data 3.0.4의 설치된 AAR를 확인하고 실제 초기화·리스너·조회·해제 API로 구현.
+- Mock 구현 및 기존 suspend 조회 인터페이스 유지. 목적지 변경 관찰을 위한 기본 Flow 메서드 추가.
+- `testDebugUnitTest assembleDebug lintDebug -PdestinationProvider=mock`: 성공.
+- `testDebugUnitTest assembleDebug lintDebug -PdestinationProvider=pleos`: 성공.
+- 두 모드 각각 단위 테스트 24개 통과, 실패·오류·건너뜀 없음.
+- 테스트 범위: SDK 데이터 변환, 좌표 순서/검증, 목적지 없음, 변경/취소 이벤트,
+  변경 중의 이전 결과 무효화, 중복 콜백, 연결 실패, 시간 초과, 구독 취소,
+  리스너 정리, 재시도, ViewModel 상태 반영, Mock UTF-8 표시.
+- `connectedDebugAndroidTest -PdestinationProvider=mock`: API 36 일반 Android 에뮬레이터에서 UI 테스트 1개 통과.
+  샘플 안내, 서울역 이름, 위도·경도 및 조회 버튼 동작 확인.
+- Pleos 모드 APK도 같은 일반 Android 에뮬레이터에서 실행.
+  Navigation 서비스가 없는 환경에서 시간 초과 안내, 다시 가져오기 재시도 및 프로세스 유지 확인.
+  이는 실제 Pleos 목적지 수신 성공 검증이 아님.
+- Lint: 오류 0개, 경고 7개. 라이브러리 최신 버전 알림 및 기존 백업 설정 경고가 남아 있음.
+- 로컬 `local.properties`의 Windows 드라이브 구분자 이스케이프 오류를 수정해 Lint 오류 해결.
+  해당 파일은 Git에서 제외됨.
+- 검증 APK는 `app/build/outputs/apk/validation/routemate-mock-debug.apk`와
+  `app/build/outputs/apk/validation/routemate-pleos-debug.apk`에 구분해 보관.
+- 실제 Pleos AVD/기기가 없어 서비스 연결 성공, 실제 목적지 설정·변경·취소 시 이벤트 순서 및
+  실제 목적지 미설정 시 경로 상태는 미검증. 다음 단계는 [수동 검증 절차](docs/pleos-destination.md) 실행.
+- 작업 브랜치: develop 기반 `feat/pleos-destination`. 기존 README 및 SDK 설정 변경 유지.
+- Spring Boot, DB 테이블, REST API, LiveKit 코드는 변경하지 않음.
+- 추천 커밋: `feat: Pleos 목적지 조회 및 변경 감지 구현`

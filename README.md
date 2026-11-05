@@ -1,54 +1,91 @@
-# RouteMate Android PoC
+# RouteMate App
 
-Kotlin + Jetpack Compose 초기 프로젝트입니다. 샘플 목적지 가져오기만 구현했으며
-실제 Pleos 내비게이션과 LiveKit 통화는 아직 연결하지 않았습니다.
+RouteMate는 목적지가 가까운 운전자들이 같은 통화방에서 대화할 수 있도록 돕는 차량용 앱입니다.
+Pleos 내비게이션 목적지로 통화방을 찾고 LiveKit으로 다자간 음성 통화를 제공하는 것을 목표로 합니다.
 
-## 로컬 빌드
+이 문서는 MVP에서 구현할 기능과 사용자 흐름을 설명합니다.
 
-Java 21(컴파일 대상 17), Android SDK 36, Build Tools 35.0.0 이상이 필요합니다.
-Android Studio에서 프로젝트 폴더를 열어 SDK 경로를 설정하거나 ANDROID_HOME을 지정하세요.
-local.properties와 키/토큰은 커밋하지 않습니다.
+## 사용자 흐름
 
-```powershell
-$env:JAVA_HOME = 'C:\Program Files\Java\jdk-21'
-$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
-.\gradlew.bat testDebugUnitTest lintDebug assembleDebug
-# 에뮬레이터/기기 연결 후
-.\gradlew.bat connectedDebugAndroidTest
-```
+**목적지 확인 → 통화방 검색 또는 생성 → 방 참여 → 그룹 음성 통화 → 퇴장**
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`.
-기기에 설치하고 앱에서 '샘플 목적지 가져오기'를 누르면 '서울역 (샘플)'이 표시됩니다.
+## 주요 화면 및 기능 계획
 
-## DDD 구조
+### 목적지 확인
 
-`destination/domain`: 좌표 검증을 담당하는 Destination 값 객체와 DestinationProvider 포트.
-`destination/application`: 목적지 조회 유스케이스.
-`destination/infrastructure`: 명시적인 Mock 구현. 향후 확인된 Pleos SDK 어댑터 추가.
-`destination/presentation`: ViewModel/StateFlow와 Compose 화면.
-MainActivity에서 의존성을 조립합니다. 도메인은 Android 및 SDK에 의존하지 않습니다.
-현재 규모에서는 단일 app 모듈의 패키지 경계로 유지합니다.
+- Pleos 내비게이션에 설정된 목적지 이름과 좌표를 가져옵니다.
+- 목적지 변경 이벤트를 받아 앱의 운행 상태에 반영합니다.
+- 목적지가 없거나 조회에 실패하면 안내와 재시도 기능을 제공합니다.
+- 목적지를 백엔드에 등록해 통화방 검색에 활용합니다.
+- SDK를 사용할 수 없는 개발 환경에서는 명시적으로 표시된 Mock 목적지로 검증합니다.
 
-## 브랜치와 PR
+### 주변 통화방 목록
 
-```powershell
-git switch develop
-git pull --ff-only origin develop
-git switch -c feat/livekit-voice-poc
-# 구현 및 테스트 후 커밋/푸시 → PR base: develop
-```
+- 목적지를 기준으로 5km 또는 10km 반경을 선택해 통화방을 검색합니다.
+- 방 이름, 참가 인원, 정원 등 참여에 필요한 정보를 표시합니다.
+- 원하는 방을 선택해 입장하고, 참여 가능한 방이 없으면 방 생성으로 이동합니다.
+- 검색 중 상태, 빈 결과, 네트워크 오류와 재시도를 처리합니다.
+- 다른 사용자의 정확한 목적지 좌표는 화면에 표시하지 않습니다.
 
-기능/API 하나마다 develop에서 새 브랜치를 만듭니다.
-기능 PR의 Android 검사 통과 후 develop에 머지하고, develop 검증이 통과하면
-별도 `develop → main` PR로 승격합니다. main 대상 PR은 develop만 허용하는 CI 검사가 있습니다.
-필수 검사 강제 적용은 GitHub 브랜치 보호 설정에서 별도로 지정해야 합니다.
+### 통화방 생성
 
-## 다음 검증
+- 방 이름, 공개 여부, 정원을 설정합니다.
+- 자신의 목적지를 중심으로 통화방을 생성하고 참여합니다.
+- 이미 다른 방에 참여 중인 경우 중복 참여를 안내합니다.
+- 방 생성 실패와 잘못된 입력을 사용자에게 안내합니다.
 
-LiveKit 연결/음소거/퇴장/재접속과 3개 단말 음성 송수신은 별도 기능 PR에서 검증합니다.
-Pleos 목적지 조회와 변경 이벤트도 별도 PR로 검증합니다.
-일반 Android 성공은 실제 차량 통화 정책 검증을 대신하지 않습니다.
+### 그룹 음성 통화
 
-버전 호환성 근거:
-- https://developer.android.com/build/releases/agp-8-13-0-release-notes
-- https://developer.android.com/develop/ui/compose/bom
+- LiveKit으로 같은 방의 참여자들과 음성을 주고받습니다.
+- 참가자 목록·인원과 연결 상태를 표시합니다.
+- 마이크 권한 요청, 마이크 켜기·끄기, 음소거, 퇴장을 제공합니다.
+- 네트워크가 끊기면 연결 상태를 안내하고 재접속을 처리합니다.
+- 방 종료·참여 권한 만료 시 통화를 정리하고 적절한 화면으로 이동합니다.
+- 방 참여 권한이 확인된 서버 발급 토큰으로 통화에 연결합니다.
+
+## 차량 환경을 고려한 설계
+
+- 주요 상태를 쉽게 확인하고, 큰 터치 영역과 단순한 화면 흐름을 제공합니다.
+- Pleos 차량 UI 가이드와 주행 제한에 맞춰 복잡한 조작을 제한합니다.
+- 마이크 권한, 오디오 입출력과 오디오 포커스를 차량 환경에서 검증합니다.
+- 일반 Android 통화 검증과 실제 Pleos 차량의 통화 지원·허용 여부를 구분해 확인합니다.
+
+## DDD 설계 방향
+
+목적지(`destination`), 통화방(`room`), 음성 통화(`voice`)를 기능별로 구분합니다.
+
+| 계층 | 역할 |
+| --- | --- |
+| domain | 목적지 값 객체, 비즈니스 규칙, 외부 기능에 대한 포트 |
+| application | 목적지 조회·방 참여·통화 연결 등의 유스케이스 |
+| infrastructure | Pleos SDK, LiveKit SDK, REST API 및 Mock 구현 |
+| presentation | Compose 화면, ViewModel, StateFlow 기반 UI 상태 |
+
+도메인은 Android UI나 외부 SDK에 의존하지 않도록 설계합니다.
+실제 SDK와 Mock 구현을 교체할 수 있도록 인터페이스를 통해 연결합니다.
+
+## 기술 구성
+
+Kotlin, Jetpack Compose, ViewModel, StateFlow, REST 클라이언트,
+LiveKit Android SDK, Pleos NaviHelper SDK를 활용합니다.
+SDK 연동은 공식 문서와 실제 API를 확인한 뒤 구현합니다.
+LiveKit API Secret은 앱에 포함하지 않습니다.
+
+## 검증 계획
+
+- 3개 단말이 같은 통화방에 입장해 서로의 음성을 송수신하는지 확인합니다.
+- 마이크 켜기·끄기, 음소거, 퇴장, 네트워크 중단 후 재접속을 검증합니다.
+- Pleos Emulator에서 목적지 조회와 목적지 변경 이벤트를 확인합니다.
+- 백엔드와 연동해 방 생성·검색·입장·퇴장의 전체 흐름을 검증합니다.
+- 실제 차량의 권한 및 오디오 제약과 주행 중 사용 정책을 확인합니다.
+
+## 개발 흐름
+
+기능마다 최신 `develop`에서 작업 브랜치를 분리합니다.
+작업 PR의 빌드·테스트 통과 후 `develop`에 머지하고,
+`develop` 검증을 통과하면 별도의 `develop → main` PR로 반영합니다.
+
+## MVP 범위
+
+목적지 확인, 통화방 검색·생성·참여, 그룹 음성 통화에 집중합니다.
+문자 채팅, 친구, AI 추천, 만남 기능은 포함하지 않습니다.
