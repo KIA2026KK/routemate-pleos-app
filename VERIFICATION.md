@@ -34,3 +34,7 @@
 - 작업 브랜치: develop 기반 `feat/pleos-destination`. 기존 README 및 SDK 설정 변경 유지.
 - Spring Boot, DB 테이블, REST API, LiveKit 코드는 변경하지 않음.
 - 추천 커밋: `feat: Pleos 목적지 조회 및 변경 감지 구현`
+- 원격 CI의 초기 에뮬레이터 부팅 실패 원인은 실행 환경 디스크 부족
+  (여유 약 6.7GB, 기본 데이터 파티션 필요 약 7.4GB)으로 확인.
+  4096M 지정 후에도 이미지의 최소 필요 공간이 유지되는 것을 확인.
+  UI 검사 실행기의 미사용 .NET SDK를 정리하고 부팅 직전 여유 공간을 확인하도록 수정.
