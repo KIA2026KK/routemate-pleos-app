@@ -48,3 +48,21 @@
 - 로컬 C 드라이브 공간 부족으로 실제 이미지 설치 및 Navigation 목적지 수신 검증 미실시.
 - SDK 조회와 우리 서버 REST 전송의 역할, Mock으로 병행 가능한 개발 범위 문서화.
 - 설치 절차는 [에뮬레이터 준비 문서](docs/pleos-emulator-setup.md) 참고.
+
+## LiveKit 음성 통화 PoC — 2026-11-06
+
+- LiveKit Android SDK 2.30.0 및 공식 Windows Server 1.13.11 개발 모드 사용.
+- `voice` 컨텍스트에 SDK 독립 도메인 포트, 유스케이스, 실제 SDK 어댑터, ViewModel 추가.
+- 디버그 전용 통화 화면: 토큰 입력, 권한 요청, 입장, 참가자/수신 트랙 수, 마이크 제어, 퇴장.
+- 기본 음소거 입장, 20초 연결/마이크 변경 제한, 재접속 상태, 서버 종료 및 구독 취소 시 해제 처리.
+- 백그라운드 전환 시 통화 종료. 토큰 저장·출력 및 API Secret의 APK 포함 없음.
+- Mock 모드 `testDebugUnitTest lintDebug assembleDebug assembleDebugAndroidTest` 성공.
+- Pleos 모드 `testDebugUnitTest assembleDebug assembleRelease` 성공, 단위 테스트 34개 통과.
+- 릴리스 Manifest에서 테스트 Activity 및 평문 통신 허용 설정 제외 확인.
+- 단위 테스트 34개 통과(기존 목적지 24개 + 음성 10개), Lint 오류 0개·경고 7개.
+- 일반 API 36 에뮬레이터 UI 테스트 2개 통과(기존 Mock 목적지 표시, 개발용 통화 화면 진입·토큰 입력).
+- 일반 API 36 에뮬레이터와 로컬 실제 LiveKit 서버의 선택 실행 테스트 1개 통과(26초).
+  세 SDK 세션의 참가자 3명, 마이크 트랙 발행 및 각 2개 구독, 음소거, 퇴장 후 인원 감소 확인.
+- 동일 에뮬레이터 내 세 세션 검증이며, 2~3개 물리 단말의 실제 음성 청취·음질·오디오 라우팅은 미검증.
+- 실제 Pleos 차량의 오디오 정책 및 네트워크 단절 후 실제 미디어 복구는 미검증.
+- 로컬 개발 서버·토큰 발급·자동 연결 테스트 절차: [음성 PoC 가이드](docs/livekit-voice-poc.md).

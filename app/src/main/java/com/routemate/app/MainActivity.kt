@@ -1,6 +1,7 @@
 package com.routemate.app
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -29,7 +30,14 @@ class MainActivity : ComponentActivity() {
                     DestinationViewModel(LoadDestination(provider))
                 }
             })
-            DestinationScreen(model.state.collectAsStateWithLifecycle().value, model::refresh, BuildConfig.USE_PLEOS_DESTINATION)
+            DestinationScreen(
+                model.state.collectAsStateWithLifecycle().value,
+                model::refresh,
+                BuildConfig.USE_PLEOS_DESTINATION,
+                onVoicePoc = if (BuildConfig.DEBUG) ({
+                    startActivity(Intent().setClassName(this, "com.routemate.app.voice.presentation.VoicePocActivity"))
+                }) else null,
+            )
         }
     }
 }

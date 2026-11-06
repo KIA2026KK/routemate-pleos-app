@@ -10,7 +10,7 @@ import com.routemate.app.R
 import com.routemate.app.destination.domain.DestinationFailure
 
 @Composable
-fun DestinationScreen(state: DestinationState, onRefresh: () -> Unit, usePleos: Boolean = false) {
+fun DestinationScreen(state: DestinationState, onRefresh: () -> Unit, usePleos: Boolean = false, onVoicePoc: (() -> Unit)? = null) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Column(Modifier.safeDrawingPadding().padding(24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -34,6 +34,9 @@ fun DestinationScreen(state: DestinationState, onRefresh: () -> Unit, usePleos: 
                 }
                 Button(onClick = onRefresh, enabled = state != DestinationState.Loading, modifier = Modifier.heightIn(min = 56.dp)) {
                     Text(stringResource(if (usePleos) R.string.load_pleos_destination else R.string.load_destination))
+                }
+                if (onVoicePoc != null) {
+                    OutlinedButton(onClick = onVoicePoc) { Text("음성 통화 테스트") }
                 }
             }
         }
