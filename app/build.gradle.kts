@@ -12,7 +12,7 @@ android {
     compileSdk = 36
     defaultConfig {
         applicationId = "com.routemate.app"
-        minSdk = 26
+        minSdk = if (destinationProvider == "pleos") 28 else 26
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
