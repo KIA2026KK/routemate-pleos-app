@@ -1,7 +1,7 @@
 # 목적지 등록 실행 및 검증
 
 [백엔드와 공통 API 계약](trip-api.md)을 사용한다.
-목적지를 조회한 뒤 **목적지 등록**을 누르면 VIN 조회 → 설치 세션 발급 → 차량 연결 → 인증된 운행 등록을 수행한다.
+목적지를 조회한 뒤 **목적지 등록**을 누르면 VIN 조회 → 설치 세션 발급/재사용 → 차량 연결 → 세션 갱신 → 인증된 운행 등록을 수행한다.
 차량 계정의 기준과 실제 SDK 속성은 [VIN 설계](vin-vehicle-identity.md)를 따른다.
 화면에는 등록 중·완료·오류·재시도가 표시된다. Mock 목적지는 샘플임을 별도로 안내한다.
 목적지가 바뀌거나 없어지면 이전 요청과 등록 완료 표시를 취소하고 새 목적지 확인을 기다린다.
@@ -48,12 +48,20 @@ VIN을 읽지 못하면 Mock으로 전환하지 않는다. 실차 서버에서�
 실제 백엔드와 API 36 에뮬레이터가 실행 중이면 다음 명령으로 등록 화면 및 암호화 저장을 검증한다.
 
 ```powershell
-.\gradlew.bat connectedDebugAndroidTest -PbackendUrl=http://10.0.2.2:8080 -Pandroid.testInstrumentationRunnerArguments.tripE2E=true --console=plain
+.\gradlew.bat connectedDebugAndroidTest -PbackendUrl=http://10.0.2.2:8080 '-Pandroid.testInstrumentationRunnerArguments.tripE2E=true' --console=plain
 ```
 
-`TripBackendConnectionTest`와 등록 성공 UI 테스트는 `tripE2E=true` 및 서버 주소가 있을 때만 실행된다.
+`TripBackendConnectionTest`, `VehicleRecoveryConnectionTest`와 등록 성공 UI 테스트는 `tripE2E=true` 및 서버 주소가 있을 때만 실행된다.
+복구 테스트는 같은 VIN의 새 설치 저장소를 흉내 내어 키 복구 후 차량·운행 ID 유지, 이전 세션 거부,
+복구 응답 유실을 가정한 같은 키 재시도를 실제 서버에서 확인한다. 실제 앱 재설치·실차 VIN 수신과는 구분한다.
 기본 CI에서는 외부 서버가 필요한 테스트를 건너뛰며, 서버 미설정 상태의 버튼 비활성화를 확인한다.
 기존 LiveKit 실제 서버 테스트는 별도 LiveKit 토큰이 있어야 실행된다.
 
-설치 세션 만료·VIN 충돌 시 사용자 ID를 바꾸어 자동 재등록하지 않는다. 갱신·소유권 확인·복구 흐름은 후속 인증 작업이다.
+설치 세션 만료·VIN 충돌 시 사용자 ID를 바꾸어 자동 재등록하지 않는다.
+**계정 관리**에서 유효 세션 갱신, 복구키 발급·재발급, 현재 VIN과 보관한 키로 계정 복구를 수행한다.
+먼저 목적지를 등록해 차량을 연결한 뒤 복구키를 발급하고 안전한 별도 장소에 보관한다.
+키는 365일 동안 유효하며 만료·재발급까지 재사용할 수 있다. 재발급하면 이전 키가 무효화되고,
+복구할 때마다 기존 세션을 모두 종료한다. 화면을 떠나면 키 입력·표시와 진행 작업을 정리한다.
+화면은 FLAG_SECURE를 적용하고 복사한 클립은 민감 정보로 표시한다. 복구키 원문을 앱 파일에 저장하지 않는다.
+VIN과 키를 모두 잃은 경우의 수동 소유권 확인·차량 양도는 후속 인증 작업이다.
 목적지 취소 전송과 운행 종료 API도 후속 작업이며, 현재 화면의 취소만으로 서버 운행을 종료하지 않는다.
