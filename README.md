@@ -80,6 +80,7 @@ LiveKit API Secret은 앱에 포함하지 않습니다.
 
 Pleos 에뮬레이터나 차량은 실제 SDK 연결을 검증할 때 사용합니다.
 Mock 앱과 백엔드 REST API 개발은 해당 실행 환경 준비와 병행합니다.
+목적지 등록 연동은 [공통 API 계약](docs/trip-api.md)과 [실행·검증 절차](docs/trip-registration.md)를 따릅니다.
 
 ## 검증 계획
 
