@@ -4,6 +4,8 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 val destinationProvider = providers.gradleProperty("destinationProvider").orElse("mock").get()
+val vehicleProvider = providers.gradleProperty("vehicleProvider").orElse(destinationProvider).get()
+require(vehicleProvider in setOf("mock", "pleos")) { "vehicleProvider must be mock or pleos" }
 require(destinationProvider in setOf("mock", "pleos")) {
     "destinationProvider must be mock or pleos"
 }
@@ -14,12 +16,13 @@ android {
     compileSdk = 36
     defaultConfig {
         applicationId = "com.routemate.app"
-        minSdk = if (destinationProvider == "pleos") 28 else 26
+        minSdk = if (destinationProvider == "pleos" || vehicleProvider == "pleos") 28 else 26
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("boolean", "USE_PLEOS_DESTINATION", (destinationProvider == "pleos").toString())
+        buildConfigField("boolean", "USE_PLEOS_VEHICLE", (vehicleProvider == "pleos").toString())
         buildConfigField("String", "BACKEND_URL", "\"$backendUrl\"")
     }
     compileOptions {
@@ -32,6 +35,7 @@ kotlin {
     compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
 }
 dependencies {
+    implementation("ai.pleos.playground:Vehicle:2.3.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.livekit:livekit-android:2.30.0")
     implementation("ai.pleos.playground:NaviHelper:3.0.5")

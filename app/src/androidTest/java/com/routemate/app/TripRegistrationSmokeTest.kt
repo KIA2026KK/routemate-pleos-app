@@ -26,4 +26,16 @@ class TripRegistrationSmokeTest {
         }
         compose.onNodeWithText("등록 완료 · 서울역 (샘플)").performScrollTo().assertIsDisplayed()
     }
+
+    @Test fun absentPleosVehicleServiceStopsRegistrationWithoutFallback() {
+        assumeTrue(BuildConfig.USE_PLEOS_VEHICLE && !BuildConfig.USE_PLEOS_DESTINATION && BuildConfig.BACKEND_URL.isNotBlank() &&
+            InstrumentationRegistry.getArguments().getString("vehicleServiceUnavailable") == "true")
+        compose.onNodeWithText("목적지 등록").performScrollTo().performClick()
+        val error = "차량 VIN을 확인할 수 없습니다. 차량 연결과 권한을 확인한 뒤 다시 시도하세요."
+        compose.waitUntil(timeoutMillis = 30_000) {
+            compose.onAllNodesWithText(error).fetchSemanticsNodes(atLeastOneRootRequired = false).isNotEmpty()
+        }
+        compose.onNodeWithText(error).performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("등록 완료 · 서울역 (샘플)").assertDoesNotExist()
+    }
 }

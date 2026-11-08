@@ -83,3 +83,19 @@
 - 기존 목적지·음성 화면 UI 회귀 테스트 2개 통과.
 - 실제 Pleos 목적지의 서버 등록 및 차량 환경 검증은 미실시.
 - 세션 갱신·복구 및 서버 운행 종료는 후속 범위. [실행 가이드](docs/trip-registration.md) 참고.
+
+## Pleos VIN 조회 및 차량 계정 연동 — 2026-11-08
+
+- Vehicle SDK 2.3.2 AAR에서 Vehicle.initialize/release, CarInfo.getVINInfo 및 checkVINInfoCapabilities 확인.
+- 실제 Kotlin 콜백은 nullable String이므로 VIN null·잘못된 형식·권한·미지원·시간 초과를 구분해 등록 중단.
+- Main dispatcher SDK 호출, 중복·늦은 콜백 무시, 10초 제한 및 정상/실패/취소 시 release 처리.
+- CAR_INFO 권한과 vehicleProvider=pleos|mock 빌드 선택 추가. 실차 조회 실패 시 Mock/익명 대체 없음.
+- 설치 세션 → VIN 차량 연결 → 목적지 등록 흐름 및 VIN/source별 Keystore 자격증명 분리.
+- 같은 서버 origin의 표기 차이는 정규화하고 다른 차량·다른 서버·Mock/실차 간 토큰 재사용 차단.
+- Mock 모드 단위 테스트 51개·Lint·앱 및 장치 테스트 APK 빌드 통과. Lint 오류 0개·경고 12개.
+- 실제 로컬 백엔드와 일반 API 36 에뮬레이터의 VIN/운행 연동 테스트 2개 및 기존 화면 2개 통과.
+  합성 VIN, 마스킹 표시, 암호화 토큰 재로드, 동일 차량/운행 ID 유지 및 목적지 갱신 확인.
+- 실제 Pleos Vehicle Service에서 실제 VIN 수신 성공은 미검증. SDK 신고 값은 서버 소유권 증명과 구분.
+- 일반 Android에서 실제 SDK의 Vehicle Service 부재 시 등록 중단·오류 표시 테스트 1개 통과.
+- Pleos 목적지·VIN 모드 단위 테스트 51개·Lint·디버그 및 HTTPS 릴리스 빌드 통과.
+- 설계·DB 속성 근거·제약은 [VIN 문서](docs/vin-vehicle-identity.md) 참고.
