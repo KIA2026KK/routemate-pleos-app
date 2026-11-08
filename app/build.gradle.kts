@@ -10,6 +10,8 @@ require(destinationProvider in setOf("mock", "pleos")) {
     "destinationProvider must be mock or pleos"
 }
 val backendUrl = providers.gradleProperty("backendUrl").orElse("").get().trimEnd('/')
+val mvpTestApplicationId = providers.gradleProperty("mvpTestApplicationId").orNull
+require(mvpTestApplicationId == null || mvpTestApplicationId.matches(Regex("com\\.routemate\\.app\\.mvpverify[a-f0-9]{8}"))) { "Invalid isolated MVP test application ID" }
 require(backendUrl.none { it == '"' || it == '\\' || it.isISOControl() }) { "Invalid backendUrl" }
 android {
     namespace = "com.routemate.app"
@@ -28,6 +30,11 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+    buildTypes {
+        getByName("debug") {
+            if (mvpTestApplicationId != null) applicationIdSuffix = mvpTestApplicationId.removePrefix("com.routemate.app")
+        }
     }
     buildFeatures { compose = true; buildConfig = true }
 }
