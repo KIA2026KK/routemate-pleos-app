@@ -9,6 +9,7 @@
     <application android:allowBackup="false" android:label="@string/app_name"
         android:dataExtractionRules="@xml/data_extraction_rules" android:icon="@drawable/ic_launcher"
         android:supportsRtl="true" android:theme="@style/Theme.RouteMate">
+        <activity android:name=".auth.presentation.VehicleAccountActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

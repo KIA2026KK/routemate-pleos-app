@@ -18,11 +18,9 @@ import com.routemate.app.destination.presentation.DestinationViewModel
 import com.routemate.app.destination.presentation.DestinationState
 import com.routemate.app.trip.application.RegisterTrip
 import com.routemate.app.trip.infrastructure.HttpTripRegistration
-import com.routemate.app.trip.infrastructure.KeystoreSessionStore
 import com.routemate.app.trip.presentation.TripViewModel
 import com.routemate.app.trip.presentation.TripRegistrationPanel
-import com.routemate.app.vehicle.infrastructure.MockVehicleIdentityProvider
-import com.routemate.app.vehicle.infrastructure.PleosVehicleIdentityProvider
+import com.routemate.app.auth.presentation.VehicleAccountActivity
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,12 +39,9 @@ class MainActivity : ComponentActivity() {
             })
             val trip: TripViewModel = viewModel(factory = viewModelFactory {
                 initializer {
-                    val vehicleProvider = if (BuildConfig.USE_PLEOS_VEHICLE) PleosVehicleIdentityProvider(applicationContext)
-                        else MockVehicleIdentityProvider(applicationContext)
                     TripViewModel(RegisterTrip(HttpTripRegistration(BuildConfig.BACKEND_URL,
-                        { vehicle -> KeystoreSessionStore(applicationContext,
-                            HttpTripRegistration.credentialScope(BuildConfig.BACKEND_URL, vehicle)) },
-                        vehicleProvider, allowLocalHttp = BuildConfig.DEBUG)))
+                        { vehicle -> vehicleStore(applicationContext, vehicle) },
+                        vehicleProvider(applicationContext), allowLocalHttp = BuildConfig.DEBUG)))
                 }
             })
             val destinationState = model.state.collectAsStateWithLifecycle().value
@@ -59,6 +54,7 @@ class MainActivity : ComponentActivity() {
                 onVoicePoc = if (BuildConfig.DEBUG) ({
                     startActivity(Intent().setClassName(this, "com.routemate.app.voice.presentation.VoicePocActivity"))
                 }) else null,
+                onAccount = { startActivity(Intent(this, VehicleAccountActivity::class.java)) },
                 registrationContent = {
                     TripRegistrationPanel(trip.state.collectAsStateWithLifecycle().value,
                         destination != null, BuildConfig.BACKEND_URL.isNotBlank(), BuildConfig.USE_PLEOS_DESTINATION,

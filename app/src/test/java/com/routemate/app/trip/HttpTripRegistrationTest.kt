@@ -23,6 +23,7 @@ class HttpTripRegistrationTest {
     private val identity = VehicleIdentity(Vin("KNA00000000000001"), VehicleSource.PLEOS_SDK, VinReadAccess.READ)
     private val provider = VehicleIdentityProvider { identity }
     private fun vehicle() = MockResponse().setBody("""{"vehicleId":"vehicle-a","maskedVin":"*************0001","source":"PLEOS_SDK","ownershipVerified":false}""")
+    private fun renewed() = MockResponse().setBody("""{"vehicleId":"vehicle-a","maskedVin":"*************0001","expiresAt":"2027-01-01T00:00:00Z"}""")
     private fun success() = MockResponse().setBody("""{"tripId":"trip-a","vehicleId":"vehicle-a","status":"ACTIVE","destination":{"name":"서울역","latitude":37.5547,"longitude":126.9706}}""")
     private fun registration(url: String, store: Store, client: OkHttpClient? = null) =
         if (client == null) HttpTripRegistration(url, {store}, provider, allowLocalHttp = true)
@@ -32,7 +33,8 @@ class HttpTripRegistrationTest {
     @Test fun createsSessionOnceAndSendsAuthenticatedUtf8Destination() = runBlocking {
         server().use { server ->
             server.enqueue(MockResponse().setResponseCode(201).setBody("""{"accessToken":"$token"}"""))
-            server.enqueue(vehicle()); server.enqueue(success()); server.enqueue(vehicle()); server.enqueue(success())
+            server.enqueue(vehicle()); server.enqueue(renewed()); server.enqueue(success())
+            server.enqueue(vehicle()); server.enqueue(renewed()); server.enqueue(success())
             val store = Store()
             val registration = registration(server.localUrl(), store)
             assertEquals(destination, registration.register(destination).destination)
@@ -41,6 +43,7 @@ class HttpTripRegistrationTest {
             val binding = server.takeRequest()
             assertEquals("/api/v1/vehicles/me", binding.path)
             assertEquals(identity.vin.value, JSONObject(binding.body.readUtf8()).getString("vin"))
+            assertEquals("/api/v1/auth/device-sessions/renew", server.takeRequest().path)
             val request = server.takeRequest()
             assertEquals("/api/v1/trips", request.path)
             assertEquals("Bearer $token", request.getHeader("Authorization"))
@@ -49,8 +52,9 @@ class HttpTripRegistrationTest {
             assertEquals(126.9706, body.getDouble("longitude"), 0.0)
             assertEquals(token, store.token)
             assertEquals("/api/v1/vehicles/me", server.takeRequest().path)
+            assertEquals("/api/v1/auth/device-sessions/renew", server.takeRequest().path)
             assertEquals("/api/v1/trips", server.takeRequest().path)
-            assertEquals(5, server.requestCount)
+            assertEquals(7, server.requestCount)
         }
     }
 
@@ -73,6 +77,7 @@ class HttpTripRegistrationTest {
             MockResponse().setBody("broken-json") to TripFailure.SERVER,
         )) server().use { server ->
             server.enqueue(vehicle())
+            server.enqueue(renewed())
             server.enqueue(response)
             assertFailure(reason) {
                 registration(server.localUrl(), Store(token)).register(destination)

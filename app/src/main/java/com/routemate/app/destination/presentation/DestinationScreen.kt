@@ -13,7 +13,7 @@ import com.routemate.app.destination.domain.DestinationFailure
 
 @Composable
 fun DestinationScreen(state: DestinationState, onRefresh: () -> Unit, usePleos: Boolean = false,
-    onVoicePoc: (() -> Unit)? = null, registrationContent: @Composable () -> Unit = {}) {
+    onVoicePoc: (() -> Unit)? = null, onAccount: (() -> Unit)? = null, registrationContent: @Composable () -> Unit = {}) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Column(Modifier.safeDrawingPadding().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
@@ -39,6 +39,7 @@ fun DestinationScreen(state: DestinationState, onRefresh: () -> Unit, usePleos: 
                     Text(stringResource(if (usePleos) R.string.load_pleos_destination else R.string.load_destination))
                 }
                 registrationContent()
+                if (onAccount != null) { OutlinedButton(onAccount) { Text("계정 관리") } }
                 if (onVoicePoc != null) {
                     OutlinedButton(onClick = onVoicePoc) { Text("음성 통화 테스트") }
                 }
