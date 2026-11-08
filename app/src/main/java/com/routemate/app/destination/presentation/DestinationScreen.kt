@@ -1,6 +1,8 @@
 package com.routemate.app.destination.presentation
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -10,10 +12,11 @@ import com.routemate.app.R
 import com.routemate.app.destination.domain.DestinationFailure
 
 @Composable
-fun DestinationScreen(state: DestinationState, onRefresh: () -> Unit, usePleos: Boolean = false, onVoicePoc: (() -> Unit)? = null) {
+fun DestinationScreen(state: DestinationState, onRefresh: () -> Unit, usePleos: Boolean = false,
+    onVoicePoc: (() -> Unit)? = null, registrationContent: @Composable () -> Unit = {}) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
-            Column(Modifier.safeDrawingPadding().padding(24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            Column(Modifier.safeDrawingPadding().verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
                 Text("RouteMate", style = MaterialTheme.typography.headlineLarge)
                 Text(stringResource(R.string.destination_title), style = MaterialTheme.typography.headlineSmall)
                 Text(stringResource(if (usePleos) R.string.pleos_notice else R.string.mock_notice))
@@ -35,6 +38,7 @@ fun DestinationScreen(state: DestinationState, onRefresh: () -> Unit, usePleos: 
                 Button(onClick = onRefresh, enabled = state != DestinationState.Loading, modifier = Modifier.heightIn(min = 56.dp)) {
                     Text(stringResource(if (usePleos) R.string.load_pleos_destination else R.string.load_destination))
                 }
+                registrationContent()
                 if (onVoicePoc != null) {
                     OutlinedButton(onClick = onVoicePoc) { Text("음성 통화 테스트") }
                 }
