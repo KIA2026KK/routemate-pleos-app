@@ -21,6 +21,8 @@ import com.routemate.app.trip.infrastructure.HttpTripRegistration
 import com.routemate.app.trip.infrastructure.KeystoreSessionStore
 import com.routemate.app.trip.presentation.TripViewModel
 import com.routemate.app.trip.presentation.TripRegistrationPanel
+import com.routemate.app.vehicle.infrastructure.MockVehicleIdentityProvider
+import com.routemate.app.vehicle.infrastructure.PleosVehicleIdentityProvider
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,8 +40,14 @@ class MainActivity : ComponentActivity() {
                 }
             })
             val trip: TripViewModel = viewModel(factory = viewModelFactory {
-                initializer { TripViewModel(RegisterTrip(HttpTripRegistration(BuildConfig.BACKEND_URL,
-                    KeystoreSessionStore(applicationContext, BuildConfig.BACKEND_URL), allowLocalHttp = BuildConfig.DEBUG))) }
+                initializer {
+                    val vehicleProvider = if (BuildConfig.USE_PLEOS_VEHICLE) PleosVehicleIdentityProvider(applicationContext)
+                        else MockVehicleIdentityProvider(applicationContext)
+                    TripViewModel(RegisterTrip(HttpTripRegistration(BuildConfig.BACKEND_URL,
+                        { vehicle -> KeystoreSessionStore(applicationContext,
+                            HttpTripRegistration.credentialScope(BuildConfig.BACKEND_URL, vehicle)) },
+                        vehicleProvider, allowLocalHttp = BuildConfig.DEBUG)))
+                }
             })
             val destinationState = model.state.collectAsStateWithLifecycle().value
             val destination = (destinationState as? DestinationState.Loaded)?.destination
@@ -53,7 +61,8 @@ class MainActivity : ComponentActivity() {
                 }) else null,
                 registrationContent = {
                     TripRegistrationPanel(trip.state.collectAsStateWithLifecycle().value,
-                        destination != null, BuildConfig.BACKEND_URL.isNotBlank(), BuildConfig.USE_PLEOS_DESTINATION) {
+                        destination != null, BuildConfig.BACKEND_URL.isNotBlank(), BuildConfig.USE_PLEOS_DESTINATION,
+                        usePleosVehicle = BuildConfig.USE_PLEOS_VEHICLE) {
                         trip.destinationChanged(destination)
                         trip.submit()
                     }

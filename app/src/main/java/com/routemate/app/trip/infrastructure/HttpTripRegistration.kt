@@ -2,6 +2,7 @@ package com.routemate.app.trip.infrastructure
 
 import com.routemate.app.destination.domain.Destination
 import com.routemate.app.trip.domain.*
+import com.routemate.app.vehicle.domain.*
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
@@ -17,12 +18,20 @@ import org.json.JSONObject
 
 class HttpTripRegistration(
     private val baseUrl: String,
-    private val sessions: SessionStore,
+    private val sessionStore: (VehicleIdentity) -> SessionStore,
+    private val vehicleProvider: VehicleIdentityProvider,
     private val client: OkHttpClient = OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS).callTimeout(20, TimeUnit.SECONDS)
         .followRedirects(false).followSslRedirects(false).build(),
     private val allowLocalHttp: Boolean = false,
 ) : TripRegistration {
+    companion object {
+        /** Canonical origin plus VIN/source prevents both cross-car reuse and URL spelling mismatches. */
+        fun credentialScope(serverUrl: String, vehicle: VehicleIdentity): String {
+            val origin = serverUrl.toHttpUrlOrNull() ?: throw TripRegistrationException(TripFailure.CONFIGURATION)
+            return "${origin.scheme}://${origin.host}:${origin.port}|${vehicle.source.name}|${vehicle.vin.value}"
+        }
+    }
     private val mutex = Mutex()
     private fun endpoint(path: String): HttpUrl {
         val url = baseUrl.toHttpUrlOrNull() ?: throw TripRegistrationException(TripFailure.CONFIGURATION)
@@ -43,21 +52,33 @@ class HttpTripRegistration(
             try {
                 // Validate before reading credentials or creating an anonymous user.
                 val tripUrl = endpoint("/api/v1/trips")
-                val token = sessions.load() ?: execute(Request.Builder().url(endpoint("/api/v1/auth/anonymous"))
+                val identity = vehicleProvider.currentVehicle()
+                val sessions = sessionStore(identity)
+                val token = sessions.load() ?: execute(Request.Builder().url(endpoint("/api/v1/auth/device-sessions"))
                     .post(ByteArray(0).toRequestBody()).build()).getString("accessToken").also {
                         check(it.matches(Regex("[A-Za-z0-9_-]{43}")))
                         sessions.save(it)
                     }
+                val profile = JSONObject().put("vin", identity.vin.value).put("source", identity.source.name)
+                    .put("vinAccessType", identity.vinAccessType?.name ?: JSONObject.NULL)
+                val vehicle = execute(Request.Builder().url(endpoint("/api/v1/vehicles/me"))
+                    .header("Authorization", "Bearer $token")
+                    .post(profile.toString().toRequestBody("application/json; charset=utf-8".toMediaType())).build())
+                check(vehicle.getString("source") == identity.source.name)
+                check(vehicle.getString("maskedVin") == identity.vin.masked)
                 val body = JSONObject().put("destination", JSONObject().put("name", destination.name)
                     .put("latitude", destination.latitude).put("longitude", destination.longitude)).toString()
                 val response = execute(Request.Builder().url(tripUrl).header("Authorization", "Bearer $token")
                     .post(body.toRequestBody("application/json; charset=utf-8".toMediaType())).build())
                 val saved = response.getJSONObject("destination")
                 check(response.getString("status") == "ACTIVE")
+                check(response.getString("vehicleId") == vehicle.getString("vehicleId"))
                 RegisteredTrip(response.getString("tripId"), Destination(saved.getString("name"),
-                    saved.getDouble("latitude"), saved.getDouble("longitude")))
+                    saved.getDouble("latitude"), saved.getDouble("longitude")),
+                    vehicle.getString("vehicleId"), vehicle.getString("maskedVin"))
             } catch (e: CancellationException) { throw e }
             catch (e: TripRegistrationException) { throw e }
+            catch (_: VehicleIdentityException) { throw TripRegistrationException(TripFailure.VEHICLE_UNAVAILABLE) }
             catch (_: IOException) { throw TripRegistrationException(TripFailure.NETWORK) }
             catch (_: Exception) { throw TripRegistrationException(TripFailure.SERVER) }
         }
@@ -76,7 +97,11 @@ class HttpTripRegistration(
                         val json = response.use {
                             if (!it.isSuccessful) throw TripRegistrationException(when (it.code) {
                                 401 -> TripFailure.UNAUTHORIZED
-                                400 -> TripFailure.INVALID_DESTINATION
+                                403 -> TripFailure.MOCK_VEHICLE_DISABLED
+                                409 -> TripFailure.VEHICLE_CONFLICT
+                                428 -> TripFailure.VEHICLE_UNAVAILABLE
+                                400 -> if (request.url.encodedPath == "/api/v1/vehicles/me") TripFailure.VEHICLE_UNAVAILABLE
+                                    else TripFailure.INVALID_DESTINATION
                                 else -> TripFailure.SERVER
                             })
                             JSONObject(it.body?.string() ?: throw IOException("Empty server response"))

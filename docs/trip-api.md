@@ -1,10 +1,13 @@
-# 목적지 등록 API 계약
+# VIN 차량 계정 및 목적지 등록 API 계약
 
-앱과 백엔드는 같은 계약을 사용한다. 사용자 ID를 요청 본문에서 받아 신뢰하지 않는다.
+앱과 백엔드는 같은 계약을 사용한다. 사용자 식별의 비즈니스 키는 VIN이다.
+`users.id`는 내부 관계키이며, 한 실제 VIN에는 한 차량 계정을 연결한다. 운전자 개인 신원은 이 모델의 대상이 아니다.
+상세 필드 근거와 관계는 [VIN 설계](vin-vehicle-identity.md)를 따른다.
 
-## 익명 세션 발급
+## 설치 세션 발급
 
-`POST /api/v1/auth/anonymous` — 요청 본문 없음, 응답 `201 Created`, `Cache-Control: no-store`.
+`POST /api/v1/auth/device-sessions` — 요청 본문 없음, 응답 `201 Created`, `Cache-Control: no-store`.
+기존 `/api/v1/auth/anonymous`는 같은 설치 세션 발급의 호환 경로이다. VIN 연결 없이 운행을 등록할 수는 없다.
 
 ```json
 {
@@ -15,14 +18,45 @@
 ```
 
 32바이트 무작위 토큰을 발급하고 DB에는 SHA-256 해시만 저장한다. 유효기간은 30일이다.
-앱은 서버별로 토큰을 분리하고 Android Keystore로 암호화해 보관한다.
+앱은 정규화된 서버 origin·VIN·조회 출처별로 토큰을 분리하고 Android Keystore로 암호화해 보관한다.
 외부 서버 연결에는 HTTPS가 필요하며 로컬 디버그 앱에서만 사설 IP의 HTTP를 허용한다.
 세션 만료·손상 시 `401`을 표시하며 다른 사용자로 자동 전환하지 않는다.
-익명 사용자 복구·세션 갱신·로그아웃 API는 후속 범위이다. 앱 재설치 시 기존 익명 사용자 복구는 지원하지 않는다.
+VIN은 식별자이며 비밀번호나 소유권 증명이 아니다. VIN 문자열만으로 기존 계정의 세션을 발급하지 않는다.
+소유권 확인·설치 간 계정 복구·세션 갱신·로그아웃은 후속 범위이다.
+
+## 현재 차량 VIN 연결
+
+`POST /api/v1/vehicles/me` — 설치 세션의 `Authorization: Bearer <accessToken>` 필수.
+
+```json
+{"vin":"KNA00000000000001","source":"PLEOS_SDK","vinAccessType":"READ"}
+```
+
+- VIN은 앞뒤 공백 제거·대문자 정규화 후 17자리 영숫자(I/O/Q 제외), 전체 0 값 거부.
+- `PLEOS_SDK`는 실제 SDK capability에서 확인한 `READ` 또는 `READ_WRITE`만 허용.
+- `MOCK`는 `vinAccessType: null`이며 기본 거부. 개발 서버에서 `ALLOW_MOCK_VEHICLE=true`인 경우만 허용.
+- Mock VIN과 실제 VIN은 별도 식별 공간이다. Mock 데이터가 실제 VIN을 선점할 수 없다.
+- 동일 세션·동일 VIN의 재연결은 같은 차량 ID를 반환한다.
+- 다른 계정이 연결한 동일 VIN, 기존 계정의 다른 VIN 변경은 `409`이며 자동 병합·자동 로그인하지 않는다.
+- `source`와 capability는 클라이언트 신고 정보이다. SDK 콜백이 서명된 소유권 증명을 제공하는 것은 아니다.
+
+```json
+{
+  "vehicleId":"uuid",
+  "maskedVin":"*************0001",
+  "source":"PLEOS_SDK",
+  "vinAccessType":"READ",
+  "ownershipVerified":false
+}
+```
+
+응답은 `200 OK`, `Cache-Control: no-store`이며 원문 VIN·다른 계정 ID·토큰을 반환하지 않는다.
 
 ## 목적지 등록 및 갱신
 
 `POST /api/v1/trips`
+
+먼저 현재 세션에 차량을 연결해야 한다. 차량 ID와 사용자 ID는 서버가 세션에서 조회하며 요청 본문에 넣지 않는다.
 
 ```http
 Authorization: Bearer <accessToken>
@@ -51,6 +85,7 @@ Content-Type: application/json
 ```json
 {
   "tripId": "uuid",
+  "vehicleId": "uuid",
   "destination": {"name": "서울역", "latitude": 37.5547, "longitude": 126.9706},
   "status": "ACTIVE",
   "startedAt": "2026-11-08T00:00:00Z",
@@ -66,11 +101,15 @@ RFC Problem Detail 형식에 `code`를 추가한다. 요청 값·인증 토큰·
 | --- | --- | --- |
 | 400 | INVALID_REQUEST | 목적지 입력 또는 JSON 오류 |
 | 401 | UNAUTHORIZED | 토큰 누락·위조·만료, `WWW-Authenticate: Bearer` |
+| 403 | MOCK_VEHICLE_DISABLED | 개발용 Mock 차량이 금지된 서버 |
+| 409 | VEHICLE_CONFLICT | VIN이 다른 계정에 연결되었거나 기존 계정의 VIN 변경 시도 |
+| 428 | VEHICLE_REQUIRED | VIN 차량 연결 없이 운행 등록 시도 |
 
-앱은 네트워크·시간 초과·5xx 응답을 구분해 재시도를 제공한다.
+앱은 네트워크 오류·시간 초과를 연결 오류로 안내하고, 5xx 응답과 구분해 재시도를 제공한다.
 아직 운행 종료·목적지 취소 전송·통화방 검색·방 참여·음성 토큰 발급은 포함하지 않는다.
 앱의 목적지 변경·제거는 미완료 요청과 화면의 기존 등록 상태를 취소하지만 서버 운행을 종료하지 않는다.
 수신이 불확실한 재시도는 같은 사용자의 운행 갱신으로 처리한다.
+V3 이전 데이터는 삭제하지 않는다. VIN을 모르는 기존 운행은 자동 연결하지 않으며 `vehicle_id`가 NULL인 이력으로 보존한다.
 
 DB 구현 참고: [PostgreSQL UPSERT](https://www.postgresql.org/docs/17/sql-insert.html),
 [PostGIS 좌표 순서](https://postgis.net/docs/ST_MakePoint.html).

@@ -2,9 +2,12 @@ package com.routemate.app.trip.domain
 
 import com.routemate.app.destination.domain.Destination
 
-data class RegisteredTrip(val id: String, val destination: Destination)
+data class RegisteredTrip(val id: String, val destination: Destination, val vehicleId: String = "", val maskedVin: String = "")
 
-enum class TripFailure { NETWORK, SERVER, UNAUTHORIZED, INVALID_DESTINATION, CONFIGURATION }
+enum class TripFailure {
+    NETWORK, SERVER, UNAUTHORIZED, INVALID_DESTINATION, CONFIGURATION,
+    VEHICLE_UNAVAILABLE, VEHICLE_CONFLICT, MOCK_VEHICLE_DISABLED,
+}
 
 class TripRegistrationException(val reason: TripFailure) : Exception(reason.name)
 
