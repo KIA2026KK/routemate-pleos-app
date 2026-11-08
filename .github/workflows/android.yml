@@ -60,3 +60,11 @@ jobs:
             df -h /
             test "$(df --output=avail -k / | tail -1)" -ge 8388608
           script: bash ./gradlew connectedDebugAndroidTest --no-daemon
+      - name: Preserve failed device test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-device-test-failure
+          path: |
+            app/build/reports/androidTests/connected/
+            app/build/outputs/androidTest-results/connected/
