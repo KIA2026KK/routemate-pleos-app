@@ -46,4 +46,9 @@ class TripViewModel(private val register: RegisterTrip) : ViewModel() {
             }
         }
     }
+    fun clearRegistration() {
+        generation++
+        request?.cancel()
+        mutableState.value=TripRegistrationState.Idle
+    }
 }
