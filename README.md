@@ -52,7 +52,7 @@ Pleos 내비게이션 목적지로 통화방을 찾고 LiveKit으로 다자간 �
 
 ## DDD 설계 방향
 
-목적지(`destination`), 통화방(`room`), 음성 통화(`voice`)를 기능별로 구분합니다.
+목적지(`destination`), 차량(`vehicle`), 운행(`trip`), 통화방(`room`), 음성 통화(`voice`)를 기능별로 구분합니다.
 
 | 계층 | 역할 |
 | --- | --- |
@@ -76,6 +76,8 @@ LiveKit API Secret은 앱에 포함하지 않습니다.
 앱은 NaviHelper SDK로 내비게이션의 최종 목적지를 읽고,
 우리 백엔드의 목적지 등록 REST API로 이름과 좌표를 전송합니다.
 백엔드는 전달받은 목적지로 통화방 검색과 참여 권한을 처리합니다.
+차량 계정은 Vehicle SDK의 VIN으로 식별하고 설치 세션 토큰으로 인증합니다.
+VIN·조회 권한 상태 등 확인된 속성은 [VIN 설계](docs/vin-vehicle-identity.md)에 맞춰 서버에 전달합니다.
 개발 중에는 Mock 목적지를 같은 흐름에 연결해 앱과 서버를 검증합니다.
 
 Pleos 에뮬레이터나 차량은 실제 SDK 연결을 검증할 때 사용합니다.
