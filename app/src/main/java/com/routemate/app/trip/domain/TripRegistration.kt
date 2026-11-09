@@ -6,7 +6,7 @@ data class RegisteredTrip(val id: String, val destination: Destination, val vehi
 
 enum class TripFailure {
     NETWORK, SERVER, UNAUTHORIZED, INVALID_DESTINATION, CONFIGURATION,
-    VEHICLE_UNAVAILABLE, VEHICLE_CONFLICT, MOCK_VEHICLE_DISABLED,
+    VEHICLE_UNAVAILABLE, VEHICLE_CONFLICT, MOCK_VEHICLE_DISABLED, TRIP_CHANGED,
 }
 
 class TripRegistrationException(val reason: TripFailure) : Exception(reason.name)

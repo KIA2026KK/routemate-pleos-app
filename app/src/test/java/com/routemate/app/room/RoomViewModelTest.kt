@@ -21,8 +21,10 @@ class RoomViewModelTest {
         var creates=0;var leaves=0;var heartbeats=0;var endings=0
         var failure:RoomError?=null
         var gate:CompletableDeferred<Unit>?=null
+        var searchGate:CompletableDeferred<Unit>?=null
+        var nearbyResults:List<NearbyRoom> = emptyList()
         override suspend fun snapshot()=snapshot
-        override suspend fun nearby(radiusKm:Int)=listOf<NearbyRoom>()
+        override suspend fun nearby(radiusKm:Int):List<NearbyRoom>{searchGate?.await();return nearbyResults}
         override suspend fun create(name:String,isPublic:Boolean,capacity:Int):RoomInfo {creates++;gate?.await();return snapshot.room!!}
         override suspend fun join(id:String)=snapshot.room!!
         override suspend fun leave(id:String){leaves++;snapshot=snapshot.copy(room=null)}
@@ -85,6 +87,60 @@ class RoomViewModelTest {
             vm.create("동행",true,3);runCurrent()
             val changed=Destination("부산역",35.1,129.0);vm.destinationChanged(changed);vm.syncDestination();runCurrent()
             assertNull(updated);access.gate!!.complete(Unit);runCurrent();assertEquals(changed,updated)
+        }finally{store.clear();Dispatchers.resetMain()}
+    }
+    @Test fun changingDestinationImmediatelyClearsOldSearchResults()=runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val access=Access(RoomSnapshot("trip",destination,null)).apply {nearbyResults=listOf(NearbyRoom(room,100))}
+        val(vm,store)=fixture(access)
+        try{
+            vm.destinationChanged(destination);vm.search(5);runCurrent();assertEquals(1,vm.state.value.nearby.size)
+            vm.destinationChanged(Destination("부산역",35.1,129.0));assertTrue(vm.state.value.nearby.isEmpty())
+        }finally{store.clear();Dispatchers.resetMain()}
+    }
+    @Test fun oldSearchResponseCannotRepopulateMatchesAfterDestinationChanges()=runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val access=Access(RoomSnapshot("trip",destination,null)).apply {
+            nearbyResults=listOf(NearbyRoom(room,100));searchGate=CompletableDeferred()
+        }
+        val(vm,store)=fixture(access)
+        try{
+            vm.destinationChanged(destination);vm.search(5);runCurrent()
+            vm.destinationChanged(Destination("부산역",35.1,129.0));access.searchGate!!.complete(Unit);runCurrent()
+            assertTrue(vm.state.value.nearby.isEmpty())
+        }finally{store.clear();Dispatchers.resetMain()}
+    }
+    @Test fun authoritativeRoomChangeClosesThePreviousVoiceSession()=runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val access=Access(RoomSnapshot("trip",destination,room));val call=Call();val(vm,store)=fixture(access,call)
+        try{
+            vm.refresh();runCurrent();vm.connect(true);runCurrent()
+            access.snapshot=access.snapshot.copy(room=room.copy(id="another-room"));vm.refresh();runCurrent()
+            assertEquals(1,call.closed);assertEquals(VoiceStatus.IDLE,vm.state.value.voice.status)
+            assertEquals("another-room",vm.state.value.snapshot.room?.id)
+        }finally{store.clear();Dispatchers.resetMain()}
+    }
+    @Test fun destinationSyncPreservesNetworkAuthenticationAndConflictFailures()=runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        var failure=TripFailure.NETWORK
+        val access=Access(RoomSnapshot("trip",destination,null))
+        val(vm,store)=fixture(access,trips=TripRegistration {throw TripRegistrationException(failure)})
+        try{
+            vm.destinationChanged(Destination("부산역",35.1,129.0))
+            for((source,expected) in listOf(TripFailure.NETWORK to RoomError.NETWORK,
+                TripFailure.UNAUTHORIZED to RoomError.UNAUTHORIZED,TripFailure.TRIP_CHANGED to RoomError.TRIP_CHANGED)){
+                failure=source;vm.syncDestination();runCurrent();assertEquals(expected,vm.state.value.error)
+            }
+        }finally{store.clear();Dispatchers.resetMain()}
+    }
+    @Test fun authoritativeDestinationChangeInvalidatesPreviouslySearchedMatches()=runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val access=Access(RoomSnapshot("trip",destination,null)).apply{nearbyResults=listOf(NearbyRoom(room,100))}
+        val(vm,store)=fixture(access)
+        try{
+            vm.refresh();runCurrent();vm.search(5);runCurrent();assertEquals(1,vm.state.value.nearby.size)
+            access.snapshot=access.snapshot.copy(destination=Destination("부산역",35.1,129.0));vm.refresh();runCurrent()
+            assertTrue(vm.state.value.nearby.isEmpty())
         }finally{store.clear();Dispatchers.resetMain()}
     }
 }

@@ -4,6 +4,7 @@ import com.routemate.app.common.infrastructure.*
 import com.routemate.app.destination.domain.Destination
 import com.routemate.app.room.domain.*
 import com.routemate.app.trip.infrastructure.SessionStore
+import com.routemate.app.trip.domain.TripRegistrationException
 import com.routemate.app.vehicle.domain.*
 import com.routemate.app.voice.domain.VoiceConnection
 import java.io.IOException
@@ -47,6 +48,7 @@ class HttpRoomAccess(baseUrl: String,private val stores: (VehicleIdentity)->Sess
             block(token)
         }catch(e: CancellationException){throw e}
         catch(e: RoomAccessException){throw e}
+        catch(_: TripRegistrationException){throw RoomAccessException(RoomError.UNAUTHORIZED)}
         catch(_: VehicleIdentityException){throw RoomAccessException(RoomError.VEHICLE_UNAVAILABLE)}
         catch(_: BackendConfigurationException){throw RoomAccessException(RoomError.CONFIGURATION)}
         catch(e: BackendHttpException){throw RoomAccessException(RoomError.entries.find { it.name==e.code } ?: when(e.status){401->RoomError.UNAUTHORIZED;400->RoomError.INVALID_REQUEST;else->RoomError.SERVER})}

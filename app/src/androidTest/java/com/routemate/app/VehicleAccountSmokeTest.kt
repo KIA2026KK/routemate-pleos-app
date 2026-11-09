@@ -14,7 +14,8 @@ import org.junit.Test
 class VehicleAccountSmokeTest {
     @get:Rule val compose=createAndroidComposeRule<MainActivity>()
     @Test fun opensProtectedAccountScreenAndRequiresRecoveryKey() {
-        compose.onNodeWithText("계정 관리").performScrollTo().performClick()
+        compose.openParkedSettings()
+        compose.onNodeWithText("계정 관리").performClick()
         compose.waitUntil(timeoutMillis=10_000){compose.onAllNodesWithText("차량 계정 관리").fetchSemanticsNodes(atLeastOneRootRequired=false).isNotEmpty()}
         compose.onNodeWithText("복구키로 계정 복구").performScrollTo().assertIsNotEnabled()
         InstrumentationRegistry.getInstrumentation().runOnMainSync{

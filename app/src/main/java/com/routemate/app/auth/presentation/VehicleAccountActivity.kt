@@ -30,6 +30,7 @@ import com.routemate.app.vehicleProvider
 import com.routemate.app.vehicleStore
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import com.routemate.app.design.RouteMateTheme
 
 class VehicleAccountActivity : ComponentActivity() {
     private var model: VehicleAccountViewModel? = null
@@ -45,18 +46,20 @@ class VehicleAccountActivity : ComponentActivity() {
             model = vm
             val state by vm.state.collectAsStateWithLifecycle()
             val input by vm.input.collectAsStateWithLifecycle()
-            MaterialTheme {
+            RouteMateTheme {
                 Surface(Modifier.fillMaxSize()) {
                     Column(Modifier.safeDrawingPadding().verticalScroll(rememberScrollState()).padding(24.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         Text("차량 계정 관리", style = MaterialTheme.typography.headlineMedium)
+                        Text("정차 후 설정",style=MaterialTheme.typography.titleMedium)
+                        if(BuildConfig.PROTOTYPE_DEMO)Text("체험 모드에서는 실제 계정·복구키를 사용하지 않습니다.")
                         Text("현재 차량 VIN과 등록된 계정으로 세션을 관리합니다.")
                         if (BuildConfig.BACKEND_URL.isBlank()) Text("서버 연결이 설정되지 않았습니다.")
                         Text("복구키는 안전한 곳에 별도로 보관하세요. 재발급하면 이전 키는 무효화됩니다.")
                         Text("계정을 복구하면 기존 설치의 세션이 종료됩니다. VIN만으로는 복구할 수 없습니다.")
                         val enabled = BuildConfig.BACKEND_URL.isNotBlank() && state != AccountState.Working
-                        Button(vm::renew, enabled = enabled) { Text("세션 갱신") }
-                        OutlinedButton(vm::issueKey, enabled = enabled) { Text("복구키 발급·재발급") }
+                        Button(vm::renew,Modifier.fillMaxWidth().heightIn(min=76.dp),enabled = enabled) { Text("세션 갱신") }
+                        OutlinedButton(vm::issueKey,Modifier.fillMaxWidth().heightIn(min=76.dp),enabled = enabled) { Text("복구키 발급·재발급") }
                         when (val value = state) {
                             AccountState.Working -> Text("계정 처리 중")
                             is AccountState.Ready -> {
@@ -68,7 +71,7 @@ class VehicleAccountActivity : ComponentActivity() {
                                 Text(value.key.value)
                                 Text("유효기간: ${value.key.expiresAt.atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))}")
                                 Text("이 키는 만료 또는 재발급 전까지 복구에 사용할 수 있습니다. 이 화면을 떠나면 표시가 사라집니다.")
-                                OutlinedButton(onClick = {
+                                OutlinedButton(modifier=Modifier.fillMaxWidth().heightIn(min=76.dp),onClick = {
                                     val clip = ClipData.newPlainText("RouteMate recovery key", value.key.value)
                                     clip.description.extras = PersistableBundle().apply { putBoolean("android.content.extra.IS_SENSITIVE", true) }
                                     getSystemService(ClipboardManager::class.java).setPrimaryClip(clip)
@@ -86,12 +89,12 @@ class VehicleAccountActivity : ComponentActivity() {
                             })
                             AccountState.Idle -> Unit
                         }
-                        OutlinedTextField(input, vm::updateInput, enabled = state != AccountState.Working,
+                        OutlinedTextField(input, vm::updateInput,Modifier.fillMaxWidth().heightIn(min=76.dp),enabled = state != AccountState.Working,
                             label = { Text("보관한 복구키") }, singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                             visualTransformation = PasswordVisualTransformation())
-                        Button(vm::recover, enabled = enabled && input.isNotBlank()) { Text("복구키로 계정 복구") }
-                        OutlinedButton(onClick = { finish() }) { Text("닫기") }
+                        Button(vm::recover,Modifier.fillMaxWidth().heightIn(min=76.dp),enabled = enabled && input.isNotBlank()) { Text("복구키로 계정 복구") }
+                        OutlinedButton(onClick = { finish() },modifier=Modifier.fillMaxWidth().heightIn(min=76.dp)) { Text("닫기") }
                     }
                 }
             }

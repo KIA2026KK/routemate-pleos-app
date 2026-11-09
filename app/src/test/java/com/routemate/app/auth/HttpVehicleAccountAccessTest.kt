@@ -3,6 +3,7 @@ package com.routemate.app.auth
 import com.routemate.app.auth.domain.*
 import com.routemate.app.auth.infrastructure.HttpVehicleAccountAccess
 import com.routemate.app.trip.infrastructure.SessionStore
+import com.routemate.app.trip.domain.*
 import com.routemate.app.vehicle.domain.*
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.*
@@ -61,6 +62,18 @@ class HttpVehicleAccountAccessTest {
             val denied=VehicleIdentityProvider{throw VehicleIdentityException(VehicleIdentityFailure.PERMISSION)}
             try{HttpVehicleAccountAccess(server.base(),{Store()},denied,allowLocalHttp=true).recover("k".repeat(43));fail("Expected missing VIN")}
             catch(e:AccountAccessException){assertEquals(AccountFailure.VEHICLE_UNAVAILABLE,e.reason)}
+            assertEquals(0,server.requestCount)
+        }
+    }
+    @Test fun unreadableCredentialReportsAuthenticationFailureWithoutNetworkFallback()=runBlocking {
+        server().use{server->
+            val broken=object:SessionStore {
+                override fun load():String?=throw TripRegistrationException(TripFailure.UNAUTHORIZED)
+                override fun save(token:String)=error("Must not replace the existing account")
+            }
+            val access=HttpVehicleAccountAccess(server.base(),{broken},provider,allowLocalHttp=true)
+            try{access.renew();fail("Expected authentication failure")}
+            catch(e:AccountAccessException){assertEquals(AccountFailure.UNAUTHORIZED,e.reason)}
             assertEquals(0,server.requestCount)
         }
     }

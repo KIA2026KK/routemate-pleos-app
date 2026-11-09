@@ -48,7 +48,7 @@ class HttpTripRegistration(
                 val body = JSONObject().put("destination", JSONObject().put("name", destination.name)
                     .put("latitude", destination.latitude).put("longitude", destination.longitude))
                 http.post("/api/v1/auth/device-sessions/renew", token)
-                val response = http.post("/api/v1/trips", token, body)
+                val response = registerCurrentTrip(token, body)
                 val saved = response.getJSONObject("destination")
                 check(response.getString("status") == "ACTIVE")
                 check(response.getString("vehicleId") == vehicle.getString("vehicleId"))
@@ -62,7 +62,7 @@ class HttpTripRegistration(
             catch (e: BackendHttpException) { throw TripRegistrationException(when (e.status) {
                 401 -> TripFailure.UNAUTHORIZED
                 403 -> TripFailure.MOCK_VEHICLE_DISABLED
-                409 -> TripFailure.VEHICLE_CONFLICT
+                409 -> if(e.code=="TRIP_CHANGED") TripFailure.TRIP_CHANGED else TripFailure.VEHICLE_CONFLICT
                 428 -> TripFailure.VEHICLE_UNAVAILABLE
                 400 -> if (e.path == "/api/v1/vehicles/me") TripFailure.VEHICLE_UNAVAILABLE else TripFailure.INVALID_DESTINATION
                 else -> TripFailure.SERVER
@@ -70,6 +70,24 @@ class HttpTripRegistration(
             catch (_: IOException) { throw TripRegistrationException(TripFailure.NETWORK) }
             catch (_: Exception) { throw TripRegistrationException(TripFailure.SERVER) }
         }
+    }
+
+    private suspend fun registerCurrentTrip(token: String, body: JSONObject): JSONObject {
+        repeat(2) { attempt ->
+            val snapshot=http.get("/api/v1/trips/me",token).trim()
+            currentCoroutineContext().ensureActive()
+            val current=snapshot.takeIf {it.isNotEmpty()&&it!="null"}?.let(::JSONObject)
+            val revision=current?.getLong("revision") ?: 0L
+            check(revision>=0)
+            body.put("precondition",JSONObject().put("tripId",current?.getString("id") ?: JSONObject.NULL).put("revision",revision))
+            try { return http.post("/api/v1/trips",token,body) }
+            catch(e: BackendHttpException) {
+                if(attempt!=0||e.status!=409||e.code!="TRIP_CHANGED")throw e
+                // Only the still-active desired operation may refresh its precondition and retry.
+                currentCoroutineContext().ensureActive()
+            }
+        }
+        error("Unreachable trip retry state")
     }
 
 }

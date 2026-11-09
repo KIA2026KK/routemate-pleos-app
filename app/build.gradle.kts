@@ -10,6 +10,8 @@ require(destinationProvider in setOf("mock", "pleos")) {
     "destinationProvider must be mock or pleos"
 }
 val backendUrl = providers.gradleProperty("backendUrl").orElse("").get().trimEnd('/')
+val prototypeDemo = providers.gradleProperty("prototypeDemo").orElse("false").get().toBooleanStrict()
+require(!prototypeDemo || (destinationProvider=="mock"&&vehicleProvider=="mock"&&backendUrl.isBlank())) { "Offline prototype requires mock providers and no backend URL" }
 val mvpTestApplicationId = providers.gradleProperty("mvpTestApplicationId").orNull
 require(mvpTestApplicationId == null || mvpTestApplicationId.matches(Regex("com\\.routemate\\.app\\.mvpverify[a-f0-9]{8}"))) { "Invalid isolated MVP test application ID" }
 require(backendUrl.none { it == '"' || it == '\\' || it.isISOControl() }) { "Invalid backendUrl" }
@@ -26,6 +28,7 @@ android {
         buildConfigField("boolean", "USE_PLEOS_DESTINATION", (destinationProvider == "pleos").toString())
         buildConfigField("boolean", "USE_PLEOS_VEHICLE", (vehicleProvider == "pleos").toString())
         buildConfigField("String", "BACKEND_URL", "\"$backendUrl\"")
+        buildConfigField("boolean", "PROTOTYPE_DEMO", "false")
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -33,6 +36,12 @@ android {
     }
     buildTypes {
         getByName("debug") {
+            if(prototypeDemo){
+                require(mvpTestApplicationId==null) { "Use a separate prototype install" }
+                applicationIdSuffix=".prototype"
+                versionNameSuffix="-prototype"
+                buildConfigField("boolean","PROTOTYPE_DEMO","true")
+            }
             if (mvpTestApplicationId != null) applicationIdSuffix = mvpTestApplicationId.removePrefix("com.routemate.app")
         }
     }

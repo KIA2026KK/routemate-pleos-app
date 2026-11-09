@@ -122,7 +122,8 @@ Content-Type: application/json
     "name": "서울역",
     "latitude": 37.5547,
     "longitude": 126.9706
-  }
+  },
+  "precondition": {"tripId": null, "revision": 0}
 }
 ```
 
@@ -133,7 +134,12 @@ Content-Type: application/json
 - 최초 등록과 갱신 모두 `200 OK`, `Cache-Control: no-store`.
 - 사용자마다 진행 중인 운행은 하나. 재시도·동시 요청은 중복 운행을 만들지 않는다.
 - 목적지를 바꿔 등록하면 동일 운행 ID와 시작 시각을 유지하며 목적지와 갱신 시각을 변경한다.
-- 동시 목적지 변경은 마지막으로 DB 갱신된 요청을 반영한다.
+- 앱은 `GET /api/v1/trips/me`로 확인한 운행 ID·revision을 `precondition`으로 전달한다.
+  활성 운행이 없으면 `tripId:null, revision:0`, 있으면 해당 ID와 양수 revision을 사용한다.
+  값이 달라졌으면 `409 TRIP_CHANGED`로 거부하며, 앱은 여전히 유효한 최신 목적지 요청에 한해
+  현재 운행을 다시 조회하고 한 번 재시도한다. 취소된 이전 요청은 재시도하지 않는다.
+- 호환성을 위해 `precondition` 생략은 허용하지만, 생략한 클라이언트에는 오래된 요청 덮어쓰기 방지가 없다.
+- Flyway V6가 revision을 추가한다. 등록·갱신마다 증가하며 응답과 현재 운행 조회에 포함한다.
 
 ```json
 {
@@ -142,7 +148,8 @@ Content-Type: application/json
   "destination": {"name": "서울역", "latitude": 37.5547, "longitude": 126.9706},
   "status": "ACTIVE",
   "startedAt": "2026-11-08T00:00:00Z",
-  "updatedAt": "2026-11-08T00:00:00Z"
+  "updatedAt": "2026-11-08T00:00:00Z",
+  "revision": 1
 }
 ```
 
@@ -156,6 +163,7 @@ RFC Problem Detail 형식에 `code`를 추가한다. 요청 값·인증 토큰·
 | 401 | UNAUTHORIZED | 토큰 누락·위조·만료, `WWW-Authenticate: Bearer` |
 | 403 | MOCK_VEHICLE_DISABLED | 개발용 Mock 차량이 금지된 서버 |
 | 409 | VEHICLE_CONFLICT | VIN이 다른 계정에 연결되었거나 기존 계정의 VIN 변경 시도 |
+| 409 | TRIP_CHANGED | 조회한 운행 ID·revision과 현재 상태가 다름 |
 | 428 | VEHICLE_REQUIRED | VIN 차량 연결 없이 운행 등록 시도 |
 
 앱은 네트워크 오류·시간 초과를 연결 오류로 안내하고, 5xx 응답과 구분해 재시도를 제공한다.
