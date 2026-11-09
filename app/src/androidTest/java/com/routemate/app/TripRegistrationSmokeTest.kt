@@ -11,7 +11,7 @@ class TripRegistrationSmokeTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
     @Test fun unconfiguredServerDoesNotAllowRegistration() {
-        assumeTrue(BuildConfig.BACKEND_URL.isBlank())
+        assumeTrue(BuildConfig.BACKEND_URL.isBlank()&&!BuildConfig.PROTOTYPE_DEMO)
         compose.onNodeWithText("서버 연결이 설정되지 않았습니다.").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("목적지 등록").performScrollTo().assertIsNotEnabled()
     }

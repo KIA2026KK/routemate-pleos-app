@@ -59,7 +59,9 @@ jobs:
           pre-emulator-launch-script: |
             df -h /
             test "$(df --output=avail -k / | tail -1)" -ge 8388608
-          script: bash ./gradlew connectedDebugAndroidTest --no-daemon
+          script: |
+            bash ./gradlew connectedDebugAndroidTest --no-daemon
+            bash ./gradlew connectedDebugAndroidTest -PprototypeDemo=true --no-daemon
       - name: Preserve failed device test reports
         if: failure()
         uses: actions/upload-artifact@v4

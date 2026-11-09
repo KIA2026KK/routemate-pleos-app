@@ -138,3 +138,26 @@
   화면의 서버 토큰 연결·마이크 켜기/끄기도 실제 LiveKit과 확인. 실패 회차 로그는 함께 보존.
 - 기본 Mock 장치 테스트 5개 통과·선택 테스트 7개 조건부 건너뜀. Lint 오류 0개·경고 12개.
 - 최종 Pleos 목적지·VIN 구성 단위 테스트 67개·lintDebug·디버그/HTTPS 릴리스 APK 빌드 통과.
+
+## 설계 점검·차량 UI·프로토타입 — 2026-11-09
+
+- 기본 Mock 구성 단위 테스트 79개 통과. 오래된 검색 결과·서버 방 변경·인증 오류·운행 revision 충돌과 취소,
+  여러 Mock VIN 제공자의 최초 생성 경쟁 회귀 검증 포함.
+- 최종 Pleos 목적지·VIN 및 HTTPS 예시 주소 구성의 단위 테스트 79개·Lint·디버그/릴리스 APK 빌드 통과.
+  릴리스 BuildConfig의 두 Pleos 제공자 true, PROTOTYPE_DEMO=false 확인. 예시 주소의 원격 연결 검증은 아님.
+- Hyundai Blue/Active Blue 기반 주·야간 테마, 가로 두 열/세로 화면, 주요 76dp 버튼,
+  정차 수동 확인 뒤 상세 입력·계정 관리 및 개발 도구 표시 적용. 차량 주행 상태 자동 감지는 미연동.
+- 별도 `com.routemate.app.prototype` APK와 인메모리 체험 어댑터 추가. 실제 지도·차량·음성 연결과 구분한 안내 표시.
+- 일반 API 36 에뮬레이터 가로 1920×1080/density 160의 프로토타입 전체 장치 테스트 6개 통과·8개 조건부 건너뜀.
+  `Build-Prototype.ps1 -Verify -Screenshots`의 체험 흐름·터치 크기·설정 진입 검증 2개 통과 및 화면 내보내기 확인.
+- 실제 로컬 백엔드·PostGIS·Redis·LiveKit의 독립 연결 검증 두 회차 연속 통과.
+  첫 회차 14개 중 9개 통과·5개 조건부 건너뜀, 두 번째 회차 실제 3개 SDK 세션 및 화면 흐름 2개 통과.
+  마이크 트랙 발행/구독·켜기/끄기, 방 생성·퇴장·운행 종료와 임시 자원 자동 정리 확인.
+- 첫 검증에서 마이크 발행 후 UI 꺼짐 유지로 타임아웃 1회 발견. SDK의 비동기 파생 속성을 직접 관찰하도록
+  수정한 뒤 위 두 회차 통과. 실패 기록도 `app/build/mvp/run-1-20261109-191800`에 보존.
+- 성공 기록: `app/build/mvp/run-1-20261109-192848`, `app/build/mvp/run-2-20261109-193015`.
+- Lint 오류 0개·경고 14개. 버전 알림, 기존 백업 설정·동기 저장 권고와 UI 교체로 사용하지 않는 문자열 2개 포함.
+- DDD 도메인의 Android/UI/HTTP/SDK import 부재 및 양 저장소의 공통 계약·배포·점검 문서 내용 일치 확인.
+- 실제 Pleos 장비·물리 단말 간 음질·주행 정책 및 Render/Firebase 배포는 미검증.
+  상세 조건은 [설계 점검](docs/design-review.md), 실행은 [프로토타입 가이드](docs/vehicle-ui-prototype.md),
+  클라우드 전달 정보는 [배포 안내](docs/deployment-render-firebase.md) 참고.

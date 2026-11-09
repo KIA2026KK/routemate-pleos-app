@@ -2,5 +2,7 @@
     <style name="Theme.RouteMate" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowLightStatusBar">true</item>
+        <item name="android:colorAccent">#002C5F</item>
+        <item name="android:windowBackground">#F3F6FA</item>
     </style>
 </resources>

@@ -24,6 +24,7 @@ class HttpTripRegistrationTest {
     private val provider = VehicleIdentityProvider { identity }
     private fun vehicle() = MockResponse().setBody("""{"vehicleId":"vehicle-a","maskedVin":"*************0001","source":"PLEOS_SDK","ownershipVerified":false}""")
     private fun renewed() = MockResponse().setBody("""{"vehicleId":"vehicle-a","maskedVin":"*************0001","expiresAt":"2027-01-01T00:00:00Z"}""")
+    private fun currentTrip(revision:Long=1) = MockResponse().setBody("""{"id":"trip-a","revision":$revision}""")
     private fun success() = MockResponse().setBody("""{"tripId":"trip-a","vehicleId":"vehicle-a","status":"ACTIVE","destination":{"name":"서울역","latitude":37.5547,"longitude":126.9706}}""")
     private fun registration(url: String, store: Store, client: OkHttpClient? = null) =
         if (client == null) HttpTripRegistration(url, {store}, provider, allowLocalHttp = true)
@@ -33,8 +34,8 @@ class HttpTripRegistrationTest {
     @Test fun createsSessionOnceAndSendsAuthenticatedUtf8Destination() = runBlocking {
         server().use { server ->
             server.enqueue(MockResponse().setResponseCode(201).setBody("""{"accessToken":"$token"}"""))
-            server.enqueue(vehicle()); server.enqueue(renewed()); server.enqueue(success())
-            server.enqueue(vehicle()); server.enqueue(renewed()); server.enqueue(success())
+            server.enqueue(vehicle()); server.enqueue(renewed()); server.enqueue(MockResponse().setBody("")); server.enqueue(success())
+            server.enqueue(vehicle()); server.enqueue(renewed()); server.enqueue(currentTrip()); server.enqueue(success())
             val store = Store()
             val registration = registration(server.localUrl(), store)
             assertEquals(destination, registration.register(destination).destination)
@@ -44,17 +45,26 @@ class HttpTripRegistrationTest {
             assertEquals("/api/v1/vehicles/me", binding.path)
             assertEquals(identity.vin.value, JSONObject(binding.body.readUtf8()).getString("vin"))
             assertEquals("/api/v1/auth/device-sessions/renew", server.takeRequest().path)
+            val snapshot = server.takeRequest()
+            assertEquals("GET",snapshot.method)
+            assertEquals("/api/v1/trips/me",snapshot.path)
             val request = server.takeRequest()
             assertEquals("/api/v1/trips", request.path)
             assertEquals("Bearer $token", request.getHeader("Authorization"))
-            val body = JSONObject(request.body.readUtf8()).getJSONObject("destination")
+            val payload=JSONObject(request.body.readUtf8())
+            assertTrue(payload.getJSONObject("precondition").isNull("tripId"))
+            assertEquals(0L,payload.getJSONObject("precondition").getLong("revision"))
+            val body = payload.getJSONObject("destination")
             assertEquals("서울역", body.getString("name"))
             assertEquals(126.9706, body.getDouble("longitude"), 0.0)
             assertEquals(token, store.token)
             assertEquals("/api/v1/vehicles/me", server.takeRequest().path)
             assertEquals("/api/v1/auth/device-sessions/renew", server.takeRequest().path)
-            assertEquals("/api/v1/trips", server.takeRequest().path)
-            assertEquals(7, server.requestCount)
+            assertEquals("/api/v1/trips/me", server.takeRequest().path)
+            val repeated=server.takeRequest()
+            assertEquals("/api/v1/trips", repeated.path)
+            assertEquals(1L,JSONObject(repeated.body.readUtf8()).getJSONObject("precondition").getLong("revision"))
+            assertEquals(9, server.requestCount)
         }
     }
 
@@ -78,6 +88,7 @@ class HttpTripRegistrationTest {
         )) server().use { server ->
             server.enqueue(vehicle())
             server.enqueue(renewed())
+            server.enqueue(currentTrip())
             server.enqueue(response)
             assertFailure(reason) {
                 registration(server.localUrl(), Store(token)).register(destination)
@@ -144,6 +155,45 @@ class HttpTripRegistrationTest {
                 assertEquals(1, server.requestCount)
                 assertEquals(token, store.token)
             }
+        }
+    }
+
+    @Test fun staleTripPreconditionIsRefreshedOnceBeforeRetryingCurrentDestination()=runBlocking {
+        server().use { server ->
+            server.enqueue(vehicle());server.enqueue(renewed());server.enqueue(currentTrip(4))
+            server.enqueue(MockResponse().setResponseCode(409).setBody("""{"code":"TRIP_CHANGED"}"""))
+            server.enqueue(currentTrip(5));server.enqueue(success())
+            assertEquals(destination,registration(server.localUrl(),Store(token)).register(destination).destination)
+            repeat(3){server.takeRequest()}
+            val first=JSONObject(server.takeRequest().body.readUtf8()).getJSONObject("precondition")
+            assertEquals(4L,first.getLong("revision"));assertEquals("trip-a",first.getString("tripId"))
+            assertEquals("/api/v1/trips/me",server.takeRequest().path)
+            assertEquals(5L,JSONObject(server.takeRequest().body.readUtf8()).getJSONObject("precondition").getLong("revision"))
+            assertEquals(6,server.requestCount)
+        }
+    }
+
+    @Test fun repeatedTripConflictIsBoundedAndIsNotMisreportedAsVinConflict()=runBlocking {
+        server().use { server ->
+            server.enqueue(vehicle());server.enqueue(renewed());server.enqueue(currentTrip(4))
+            server.enqueue(MockResponse().setResponseCode(409).setBody("""{"code":"TRIP_CHANGED"}"""))
+            server.enqueue(currentTrip(5))
+            server.enqueue(MockResponse().setResponseCode(409).setBody("""{"code":"TRIP_CHANGED"}"""))
+            assertFailure(TripFailure.TRIP_CHANGED){registration(server.localUrl(),Store(token)).register(destination)}
+            assertEquals(6,server.requestCount)
+        }
+    }
+
+    @Test fun cancelledOldDestinationDoesNotRefetchOrRetryAConflict()=runBlocking {
+        server().use { server ->
+            val client=OkHttpClient.Builder().callTimeout(10,TimeUnit.SECONDS).build()
+            server.enqueue(vehicle());server.enqueue(renewed());server.enqueue(currentTrip(4))
+            server.enqueue(MockResponse().setResponseCode(409).setBody("""{"code":"TRIP_CHANGED"}""").setBodyDelay(1,TimeUnit.SECONDS))
+            val job=launch(Dispatchers.IO){registration(server.localUrl(),Store(token),client).register(destination)}
+            repeat(4){assertNotNull(server.takeRequest(5,TimeUnit.SECONDS))}
+            job.cancelAndJoin()
+            withTimeout(2_000){while(client.dispatcher.runningCallsCount()!=0)delay(10)}
+            assertEquals(4,server.requestCount)
         }
     }
 
