@@ -1,6 +1,7 @@
 # LiveKit 음성 통화 PoC
 
 이 단계는 목적지 매칭과 분리된 개발용 실제 음성 통화 실험이다.
+제품의 통화방·서버 발급 토큰 연결은 [MVP 계약](mvp-room-calls.md)과 [통합 검증](mvp-testing.md)을 따른다.
 디버그 앱의 **음성 통화 테스트** 버튼으로 진입한다. 릴리스 앱에는 진입 버튼과 테스트 Activity가 없다.
 도메인 포트 `VoiceCall` → 유스케이스 `JoinVoiceCall` → LiveKit 어댑터로 연결한다.
 
@@ -32,7 +33,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\voice-poc\New-Token.
 `-Room`과 `-Minutes` 옵션으로 변경할 수 있으며 모든 참가자는 같은 방의 토큰을 사용한다.
 이 스크립트는 로컬 `--dev` 서버 전용이며 마이크 발행·트랙 구독 권한만 부여한다.
 API Secret은 앱 소스·빌드 설정·APK에 포함하지 않는다.
-실서비스 토큰 발급은 향후 백엔드에서 방 참여 권한을 확인한 후 구현한다.
+제품 통화 화면에서는 백엔드가 방 참여 권한을 확인하고 토큰을 발급한다. 수동 PoC는 제품 인증 흐름과 분리한다.
 
 ## 서버 주소
 

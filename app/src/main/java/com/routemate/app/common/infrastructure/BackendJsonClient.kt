@@ -12,7 +12,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 
 internal class BackendConfigurationException : Exception("Invalid backend configuration")
-internal class BackendHttpException(val status: Int, val path: String) : Exception("HTTP $status")
+internal class BackendHttpException(val status: Int, val path: String, val code: String? = null) : Exception("HTTP $status")
 
 internal class BackendJsonClient(
     private val baseUrl: String,
@@ -39,6 +39,13 @@ internal class BackendJsonClient(
         val request = Request.Builder().url(endpoint(path)).apply {
             if (token != null) header("Authorization", "Bearer $token")
         }.post(body?.toString()?.toRequestBody("application/json; charset=utf-8".toMediaType()) ?: ByteArray(0).toRequestBody()).build()
+        return JSONObject(execute(request,path))
+    }
+    suspend fun get(path: String, token: String, query: Map<String,String> = emptyMap()): String {
+        val url=endpoint(path).newBuilder().apply { query.forEach { (key,value)->addQueryParameter(key,value) } }.build()
+        return execute(Request.Builder().url(url).header("Authorization","Bearer $token").get().build(),path)
+    }
+    private suspend fun execute(request: Request, path: String): String {
         val call = client.newCall(request)
         return suspendCancellableCoroutine { continuation ->
             continuation.invokeOnCancellation { call.cancel() }
@@ -49,8 +56,12 @@ internal class BackendJsonClient(
                 override fun onResponse(call: Call, response: Response) {
                     try {
                         val json = response.use {
-                            if (!it.isSuccessful) throw BackendHttpException(it.code, path)
-                            JSONObject(it.body?.string() ?: throw IOException("Empty server response"))
+                            val text=it.body?.string() ?: throw IOException("Empty server response")
+                            if (!it.isSuccessful) {
+                                val code=runCatching { JSONObject(text).optString("code") }.getOrNull()
+                                throw BackendHttpException(it.code,path,code)
+                            }
+                            text
                         }
                         if (continuation.isActive) continuation.resume(json)
                     } catch (e: Exception) { if (continuation.isActive) continuation.resumeWithException(e) }

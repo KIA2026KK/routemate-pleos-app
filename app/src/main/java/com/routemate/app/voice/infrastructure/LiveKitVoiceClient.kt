@@ -1,8 +1,11 @@
 package com.routemate.app.voice.infrastructure
 
 import android.content.Context
+import android.os.Build
 import com.routemate.app.voice.domain.*
 import io.livekit.android.LiveKit
+import io.livekit.android.LiveKitOverrides
+import io.livekit.android.AudioOptions
 import io.livekit.android.events.RoomEvent
 import io.livekit.android.events.collect
 import io.livekit.android.room.Room
@@ -10,7 +13,14 @@ import io.livekit.android.room.track.RemoteAudioTrack
 import kotlinx.coroutines.flow.flow
 
 internal class LiveKitVoiceClient(context: Context) : VoiceClient {
-    private val room = LiveKit.create(context)
+    // WebRTC's legacy emulator detection forces 8 kHz even on modern AVDs. That path
+    // triggered an AudioRecordJava native span assertion during repeated API 36 calls.
+    // Keep real-device audio defaults; modern Android emulator audio supports 48 kHz.
+    private val room = LiveKit.create(context, overrides = LiveKitOverrides(audioOptions = AudioOptions(
+        javaAudioDeviceModuleCustomizer = { builder ->
+            if (Build.HARDWARE == "goldfish" || Build.HARDWARE == "ranchu") builder.setSampleRate(48_000)
+        },
+    )))
     override val updates = flow {
         room.events.collect { event ->
             emit(if (event is RoomEvent.FailedToConnect) {
