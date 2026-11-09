@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.routemate.app.destination.domain.Destination
 import com.routemate.app.room.application.ManageRooms
 import com.routemate.app.room.domain.*
-import com.routemate.app.trip.domain.TripRegistration
+import com.routemate.app.trip.domain.*
 import com.routemate.app.voice.domain.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
@@ -25,9 +25,24 @@ class RoomViewModel(private val rooms: ManageRooms,private val voice: VoiceCall,
     private var foreground=true
     private var generation=0
     private var desiredDestination: Destination?=null
+    private var destinationRevision=0L
     private var syncPending=false
     private var refreshPending=false
-    private fun error(e: Exception)=(e as? RoomAccessException)?.reason ?: if(e is IllegalArgumentException)RoomError.INVALID_REQUEST else RoomError.SERVER
+    private fun error(e: Exception)=when(e){
+        is RoomAccessException -> e.reason
+        is TripRegistrationException -> when(e.reason){
+            TripFailure.NETWORK -> RoomError.NETWORK
+            TripFailure.UNAUTHORIZED -> RoomError.UNAUTHORIZED
+            TripFailure.CONFIGURATION -> RoomError.CONFIGURATION
+            TripFailure.INVALID_DESTINATION -> RoomError.INVALID_REQUEST
+            TripFailure.VEHICLE_UNAVAILABLE -> RoomError.VEHICLE_UNAVAILABLE
+            TripFailure.MOCK_VEHICLE_DISABLED -> RoomError.MOCK_VEHICLE_DISABLED
+            TripFailure.TRIP_CHANGED -> RoomError.TRIP_CHANGED
+            TripFailure.VEHICLE_CONFLICT,TripFailure.SERVER -> RoomError.SERVER
+        }
+        is IllegalArgumentException -> RoomError.INVALID_REQUEST
+        else -> RoomError.SERVER
+    }
     private fun perform(block: suspend ()->Unit) {
         if(state.value.busy)return
         val current=generation
@@ -48,8 +63,8 @@ class RoomViewModel(private val rooms: ManageRooms,private val voice: VoiceCall,
     private suspend fun reload(){
         val snapshot=rooms.snapshot()
         currentCoroutineContext().ensureActive()
-        mutableState.update { it.copy(snapshot=snapshot) }
-        if(snapshot.room==null)stopVoice()
+        if(snapshot.room?.id!=state.value.snapshot.room?.id)stopVoice()
+        mutableState.update { it.copy(snapshot=snapshot,nearby=if(snapshot.destination!=it.snapshot.destination)emptyList() else it.nearby) }
         startHeartbeat()
     }
     fun refresh(){
@@ -57,10 +72,11 @@ class RoomViewModel(private val rooms: ManageRooms,private val voice: VoiceCall,
         refreshPending=false;perform { reload() }
     }
     fun search(radiusKm: Int)=perform {
+        val revision=destinationRevision
         mutableState.update { it.copy(radiusKm=radiusKm,nearby=emptyList()) }
         val found=rooms.nearby(radiusKm)
         currentCoroutineContext().ensureActive()
-        mutableState.update { it.copy(nearby=found) }
+        if(revision==destinationRevision)mutableState.update { it.copy(nearby=found) }
     }
     fun create(name: String,isPublic: Boolean,capacity: Int)=perform {
         val room=rooms.create(name,isPublic,capacity)
@@ -126,7 +142,12 @@ class RoomViewModel(private val rooms: ManageRooms,private val voice: VoiceCall,
             }
         }
     }
-    fun destinationChanged(value: Destination?){desiredDestination=value}
+    fun destinationChanged(value: Destination?){
+        if(value==desiredDestination)return
+        desiredDestination=value
+        destinationRevision++
+        mutableState.update { it.copy(nearby=emptyList()) }
+    }
     /** Only sync a known active trip; initial destination loading never creates an account. */
     fun syncDestination(){
         syncPending=true
@@ -134,6 +155,7 @@ class RoomViewModel(private val rooms: ManageRooms,private val voice: VoiceCall,
         syncPending=false
         perform {
             val snapshot=rooms.snapshot()
+            currentCoroutineContext().ensureActive()
             val destination=desiredDestination
             if(snapshot.tripId!=null&&destination!=null&&destination!=snapshot.destination)trips.register(destination)
             if(snapshot.tripId!=null&&destination==null)rooms.endTrip()

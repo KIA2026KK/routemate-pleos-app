@@ -3,6 +3,7 @@ package com.routemate.app.auth.infrastructure
 import com.routemate.app.auth.domain.*
 import com.routemate.app.common.infrastructure.*
 import com.routemate.app.trip.infrastructure.SessionStore
+import com.routemate.app.trip.domain.TripRegistrationException
 import com.routemate.app.vehicle.domain.*
 import java.io.IOException
 import java.time.Instant
@@ -50,6 +51,7 @@ class HttpVehicleAccountAccess(
             action(provider.currentVehicle())
         } catch (e: CancellationException) { throw e }
         catch (e: AccountAccessException) { throw e }
+        catch (_: TripRegistrationException) { throw AccountAccessException(AccountFailure.UNAUTHORIZED) }
         catch (_: VehicleIdentityException) { throw AccountAccessException(AccountFailure.VEHICLE_UNAVAILABLE) }
         catch (_: BackendConfigurationException) { throw AccountAccessException(AccountFailure.CONFIGURATION) }
         catch (e: BackendHttpException) { throw AccountAccessException(when (e.status) {

@@ -3,6 +3,7 @@ package com.routemate.app.room
 import com.routemate.app.room.domain.*
 import com.routemate.app.room.infrastructure.HttpRoomAccess
 import com.routemate.app.trip.infrastructure.SessionStore
+import com.routemate.app.trip.domain.*
 import com.routemate.app.vehicle.domain.*
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.*
@@ -17,7 +18,7 @@ class HttpRoomAccessTest {
         override fun load()=token
         override fun save(token: String){error("Room API must not replace credentials")}
     }
-    private fun api(server: MockWebServer,store: Store=Store())=HttpRoomAccess("http://127.0.0.1:${server.port}",{store},VehicleIdentityProvider{vehicle},allowLocalHttp=true)
+    private fun api(server: MockWebServer,store: SessionStore=Store())=HttpRoomAccess("http://127.0.0.1:${server.port}",{store},VehicleIdentityProvider{vehicle},allowLocalHttp=true)
     @Test fun loadsNullableTripAndRoomWithoutCreatingSession()=runBlocking {
         MockWebServer().use { server ->
             server.start();server.enqueue(MockResponse().setBody(""));server.enqueue(MockResponse().setBody("null"))
@@ -55,6 +56,18 @@ class HttpRoomAccessTest {
             server.start()
             try{api(server,Store(null)).snapshot();fail()}catch(e:RoomAccessException){assertEquals(RoomError.UNAUTHORIZED,e.reason)}
             try{api(server).join("../admin");fail()}catch(e:RoomAccessException){assertEquals(RoomError.INVALID_REQUEST,e.reason)}
+            assertEquals(0,server.requestCount)
+        }
+    }
+    @Test fun unreadableCredentialRequestsRecoveryInsteadOfReportingServerFailure()=runBlocking {
+        MockWebServer().use { server ->
+            server.start()
+            val broken=object:SessionStore {
+                override fun load():String?=throw TripRegistrationException(TripFailure.UNAUTHORIZED)
+                override fun save(token:String)=error("Must not replace credentials")
+            }
+            try{api(server,broken).snapshot();fail("Expected authentication failure")}
+            catch(e:RoomAccessException){assertEquals(RoomError.UNAUTHORIZED,e.reason)}
             assertEquals(0,server.requestCount)
         }
     }

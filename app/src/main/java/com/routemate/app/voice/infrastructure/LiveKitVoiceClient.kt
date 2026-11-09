@@ -10,7 +10,10 @@ import io.livekit.android.events.RoomEvent
 import io.livekit.android.events.collect
 import io.livekit.android.room.Room
 import io.livekit.android.room.track.RemoteAudioTrack
-import kotlinx.coroutines.flow.flow
+import io.livekit.android.util.flow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.flow.collect
 
 internal class LiveKitVoiceClient(context: Context) : VoiceClient {
     // WebRTC's legacy emulator detection forces 8 kHz even on modern AVDs. That path
@@ -21,9 +24,17 @@ internal class LiveKitVoiceClient(context: Context) : VoiceClient {
             if (Build.HARDWARE == "goldfish" || Build.HARDWARE == "ranchu") builder.setSampleRate(48_000)
         },
     )))
-    override val updates = flow {
+    override val updates = channelFlow {
+        // isMicrophoneEnabled is an asynchronously derived SDK StateFlow. Its final
+        // value can arrive after TrackPublished and after setMicrophoneEnabled returns.
+        // Observe it directly so a successful publication cannot leave the UI muted.
+        launch {
+            room.localParticipant::isMicrophoneEnabled.flow.collect {
+                if (room.state != Room.State.DISCONNECTED) send(snapshot())
+            }
+        }
         room.events.collect { event ->
-            emit(if (event is RoomEvent.FailedToConnect) {
+            send(if (event is RoomEvent.FailedToConnect) {
                 VoiceState(status = VoiceStatus.ERROR, error = VoiceFailure.CONNECTION)
             } else snapshot())
         }
