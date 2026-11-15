@@ -17,7 +17,7 @@ class HttpRoomAccess(baseUrl: String,private val stores: (VehicleIdentity)->Sess
     private val provider: VehicleIdentityProvider,client: OkHttpClient=BackendJsonClient.client(),allowLocalHttp: Boolean=false) : RoomAccess {
     private val http=BackendJsonClient(baseUrl,client,allowLocalHttp)
     private fun room(value: JSONObject)=RoomInfo(value.getString("id"),value.getString("name"),value.getBoolean("isPublic"),
-        value.getInt("capacity"),value.getInt("participants"),value.getString("expiresAt"))
+        value.getInt("capacity"),value.getInt("participants"),value.getString("expiresAt"),value.optString("inviteCode"))
     private fun id(value: String)=try { UUID.fromString(value).toString() } catch (_: Exception){throw RoomAccessException(RoomError.INVALID_REQUEST)}
     override suspend fun snapshot()=access { token ->
         val trip=http.get("/api/v1/trips/me",token).takeIf { it.isNotBlank() && it!="null" }?.let(::JSONObject)
@@ -25,7 +25,7 @@ class HttpRoomAccess(baseUrl: String,private val stores: (VehicleIdentity)->Sess
         RoomSnapshot(trip?.getString("id"),trip?.getJSONObject("destination")?.let { Destination(it.getString("name"),it.getDouble("latitude"),it.getDouble("longitude")) },current?.let(::room))
     }
     override suspend fun nearby(radiusKm: Int)=access { token ->
-        require(radiusKm==5||radiusKm==10)
+        require(radiusKm in RoomPolicy.radii)
         val array=JSONArray(http.get("/api/v1/rooms/nearby",token,mapOf("radiusKm" to radiusKm.toString())))
         List(array.length()) { index -> val value=array.getJSONObject(index);NearbyRoom(room(value.getJSONObject("room")),value.getLong("distanceMeters")) }
     }
@@ -33,7 +33,18 @@ class HttpRoomAccess(baseUrl: String,private val stores: (VehicleIdentity)->Sess
         require(name.isNotBlank()&&name.length<=60&&capacity in 2..8)
         room(http.post("/api/v1/rooms",token,JSONObject().put("name",name.trim()).put("isPublic",isPublic).put("capacity",capacity)))
     }
-    override suspend fun join(id: String)=access { room(http.post("/api/v1/rooms/${id(id)}/join",it)) }
+    override suspend fun join(id: String)=joinInvitation(id,false)
+    override suspend fun switchTo(invitation: String)=joinInvitation(invitation,true)
+    private suspend fun joinInvitation(invitation:String,replace:Boolean)=access { token ->
+        val value=invitation.trim()
+        val uuid=runCatching{UUID.fromString(value).toString()}.getOrNull()
+        val response=if(uuid!=null)http.post("/api/v1/rooms/$uuid/${if(replace)"switch" else "join"}",token)
+        else {
+            require(value.matches(Regex("[A-Za-z0-9]{8,32}")))
+            http.post("/api/v1/rooms/join",token,JSONObject().put("code",value.uppercase(java.util.Locale.ROOT)).put("replaceCurrent",replace))
+        }
+        room(response)
+    }
     override suspend fun leave(id: String) { access { http.post("/api/v1/rooms/${id(id)}/leave",it) } }
     override suspend fun heartbeat(id: String)=access { room(http.post("/api/v1/rooms/${id(id)}/heartbeat",it)) }
     override suspend fun endTrip() { access { http.post("/api/v1/trips/me/end",it) } }

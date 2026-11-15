@@ -12,10 +12,10 @@ import org.junit.Rule
 import org.junit.Test
 
 class VehicleAccountSmokeTest {
-    @get:Rule val compose=createAndroidComposeRule<MainActivity>()
+    @get:Rule(order=0) val sessionFixture=ResetRoomSessionRule()
+    @get:Rule(order=1) val compose=createAndroidComposeRule<MainActivity>()
     @Test fun opensProtectedAccountScreenAndRequiresRecoveryKey() {
-        compose.openParkedSettings()
-        compose.onNodeWithText("계정 관리").performClick()
+        compose.openAccount()
         compose.waitUntil(timeoutMillis=10_000){compose.onAllNodesWithText("차량 계정 관리").fetchSemanticsNodes(atLeastOneRootRequired=false).isNotEmpty()}
         compose.onNodeWithText("복구키로 계정 복구").performScrollTo().assertIsNotEnabled()
         InstrumentationRegistry.getInstrumentation().runOnMainSync{

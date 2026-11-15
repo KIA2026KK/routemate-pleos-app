@@ -40,24 +40,25 @@ class RoomViewModelTest {
     private fun fixture(access:Access,call:Call=Call(),trips:TripRegistration=TripRegistration{error("Unexpected trip registration")}):Pair<RoomViewModel,ViewModelStore>{
         val vm=RoomViewModel(ManageRooms(access),call,trips,heartbeatMs=1000);val store=ViewModelStore();store.put("rooms",vm);return vm to store
     }
-    @Test fun duplicateCreateBlockedAndBackgroundStopsCallAndLeavesRoom()=runTest {
+    @Test fun duplicateCreateBlockedAndBackgroundKeepsCallUntilExplicitLeave()=runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val access=Access(RoomSnapshot("trip",destination,room));access.gate=CompletableDeferred()
         val call=Call();val(vm,store)=fixture(access,call)
         try{
             vm.create("동행",true,3);vm.create("동행",true,3);runCurrent();assertEquals(1,access.creates)
             access.gate!!.complete(Unit);runCurrent();vm.connect(true);runCurrent();assertEquals(VoiceStatus.CONNECTED,vm.state.value.voice.status)
-            vm.background();runCurrent();assertEquals(1,call.closed);assertEquals(1,access.leaves);assertNull(vm.state.value.snapshot.room)
+            vm.background();runCurrent();assertEquals(0,call.closed);assertEquals(0,access.leaves);assertNotNull(vm.state.value.snapshot.room)
+            vm.leave();runCurrent();assertEquals(1,call.closed);assertEquals(1,access.leaves);assertNull(vm.state.value.snapshot.room)
             assertEquals(VoiceStatus.IDLE,vm.state.value.voice.status)
         }finally{store.clear();Dispatchers.resetMain()}
     }
-    @Test fun heartbeatFailureReleasesAudioAndRetryUpdatesRoom()=runTest {
+    @Test fun transientHeartbeatFailurePreservesAudioAndRetryUpdatesRoom()=runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val access=Access(RoomSnapshot("trip",destination,room));val call=Call();val(vm,store)=fixture(access,call)
         try{
             vm.refresh();runCurrent();vm.connect(true);runCurrent();access.failure=RoomError.NETWORK
-            advanceTimeBy(1001);runCurrent();assertEquals(1,call.closed);assertEquals(RoomError.NETWORK,vm.state.value.error)
-            access.failure=null;advanceTimeBy(1000);runCurrent();assertNull(vm.state.value.error)
+            advanceTimeBy(1001);runCurrent();assertEquals(0,call.closed);assertEquals(RoomError.NETWORK,vm.state.value.error)
+            access.failure=null;advanceTimeBy(2001);runCurrent();assertNull(vm.state.value.error)
             assertNotNull(vm.state.value.snapshot.room)
         }finally{store.clear();Dispatchers.resetMain()}
     }
@@ -120,6 +121,20 @@ class RoomViewModelTest {
             assertEquals("another-room",vm.state.value.snapshot.room?.id)
         }finally{store.clear();Dispatchers.resetMain()}
     }
+    @Test fun selectingAnotherDestinationLeavesOldRoomAndStopsAudioBeforeRegistration()=runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val access=Access(RoomSnapshot("trip",destination,room));val call=Call()
+        val changed=Destination("광주송정역",35.1374,126.7916)
+        val(vm,store)=fixture(access,call,TripRegistration { value ->
+            assertEquals(1,access.leaves);assertEquals(1,call.closed)
+            access.snapshot=access.snapshot.copy(destination=value)
+            RegisteredTrip("trip",value)
+        })
+        try{
+            vm.refresh();runCurrent();vm.connect(true);runCurrent();vm.registerDestination(changed);runCurrent()
+            assertNull(vm.state.value.snapshot.room);assertEquals(changed,vm.state.value.snapshot.destination)
+        }finally{store.clear();Dispatchers.resetMain()}
+    }
     @Test fun destinationSyncPreservesNetworkAuthenticationAndConflictFailures()=runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         var failure=TripFailure.NETWORK
@@ -139,8 +154,10 @@ class RoomViewModelTest {
         val(vm,store)=fixture(access)
         try{
             vm.refresh();runCurrent();vm.search(5);runCurrent();assertEquals(1,vm.state.value.nearby.size)
-            access.snapshot=access.snapshot.copy(destination=Destination("부산역",35.1,129.0));vm.refresh();runCurrent()
-            assertTrue(vm.state.value.nearby.isEmpty())
+            access.snapshot=access.snapshot.copy(destination=Destination("부산역",35.1,129.0))
+            val refreshed=listOf(NearbyRoom(room.copy(id="new-destination-room"),200))
+            access.nearbyResults=refreshed;vm.refresh();runCurrent()
+            assertEquals(refreshed,vm.state.value.nearby)
         }finally{store.clear();Dispatchers.resetMain()}
     }
 }

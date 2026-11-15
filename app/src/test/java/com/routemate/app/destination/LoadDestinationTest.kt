@@ -18,9 +18,9 @@ class LoadDestinationTest {
     @Test fun mockPreservesUtf8NameAndCoordinates() = runTest {
         val useCase = LoadDestination(MockDestinationProvider())
         val destination = useCase()
-        assertEquals("서울역 (샘플)", destination?.name)
-        assertEquals(37.5547, destination!!.latitude, 0.0)
-        assertEquals(126.9706, destination.longitude, 0.0)
+        assertEquals("광주송정역", destination?.name)
+        assertEquals(35.1374, destination!!.latitude, 0.0)
+        assertEquals(126.7916, destination.longitude, 0.0)
         assertEquals(destination, useCase.observe().first())
     }
 }

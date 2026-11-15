@@ -11,36 +11,37 @@ import org.junit.Rule
 import org.junit.Test
 
 class MvpUiConnectionTest {
-    @get:Rule val compose=createAndroidComposeRule<MainActivity>()
-    @Test fun registersDestinationCreatesRoomLeavesAndEndsTrip(){
-        assumeTrue(BuildConfig.BACKEND_URL.isNotBlank()&&InstrumentationRegistry.getArguments().getString("mvpE2E")=="true")
-        compose.waitUntil(15_000){compose.onAllNodesWithText("서울역 (샘플)").fetchSemanticsNodes().isNotEmpty()}
-        val context=InstrumentationRegistry.getInstrumentation().targetContext
-        InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("pm grant ${context.packageName} android.permission.RECORD_AUDIO").close()
-        val access=HttpRoomAccess(BuildConfig.BACKEND_URL,{vehicleStore(context,it)},vehicleProvider(context),allowLocalHttp=true)
-        runBlocking{runCatching{access.endTrip()}}
-        compose.onNodeWithText("통화방 상태 확인").performScrollTo().performClick()
-        compose.waitUntil(15_000){compose.onAllNodesWithText("먼저 운행 목적지를 등록하세요.").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("목적지 등록").performScrollTo().performClick()
-        compose.waitUntil(15_000){compose.onAllNodesWithText("현재 운행 · 서울역 (샘플)").fetchSemanticsNodes().isNotEmpty()}
-        val name="UI 동행 ${UUID.randomUUID().toString().take(6)}"
-        compose.openParkedSettings()
-        compose.onNodeWithText("새 방 만들기").performScrollTo().performClick()
-        compose.onNodeWithText("새 통화방 이름").performTextInput(name)
-        compose.onNodeWithText("새 통화방 이름").performImeAction()
-        compose.onNodeWithText("통화방 생성").performClick()
-        compose.waitUntil(15_000){compose.onAllNodesWithText("참여 중 · $name · 1/4명").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("그룹 음성 연결").performScrollTo().performClick()
-        compose.waitUntil(30_000){compose.onAllNodesWithText("음성 연결 완료").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("마이크 켜기").performScrollTo().performClick()
-        compose.waitUntil(15_000){compose.onAllNodesWithText("마이크 끄기").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("마이크 끄기").performScrollTo().performClick()
-        compose.waitUntil(15_000){compose.onAllNodesWithText("마이크 켜기").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("통화방 퇴장").performScrollTo().performClick()
-        compose.waitUntil(15_000){compose.onAllNodesWithText("새 방 만들기").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("운행 종료").performScrollTo().performClick()
-        compose.onNodeWithText("운행 종료 확인").performClick()
-        compose.waitUntil(15_000){compose.onAllNodesWithText("먼저 운행 목적지를 등록하세요.").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("운행 종료").assertIsNotEnabled()
+    @get:Rule(order=0) val sessionFixture=ResetRoomSessionRule()
+    @get:Rule(order=1) val compose = createAndroidComposeRule<MainActivity>()
+    @Test fun autoRegistersCreatesAndConnectsRoomPreservesCallOnRecreationAndEndsTrip() {
+        assumeTrue(BuildConfig.BACKEND_URL.isNotBlank() && InstrumentationRegistry.getArguments().getString("mvpE2E") == "true")
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        grantVoicePermissions()
+        val access = HttpRoomAccess(BuildConfig.BACKEND_URL, { vehicleStore(context, it) }, vehicleProvider(context), allowLocalHttp = true)
+        try {
+            compose.waitUntil(40_000) { compose.onAllNodesWithText("목적지 등록 완료").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("광주송정역").assertIsDisplayed()
+            compose.clickReadyText("방 만들기")
+            compose.confirmParkedIfNeeded()
+            val name = "UI 동행 ${UUID.randomUUID().toString().take(6)}"
+            compose.onNodeWithText("방 이름").performTextClearance()
+            compose.onNodeWithText("방 이름").performTextInput(name)
+            compose.onNodeWithText("방 이름").performImeAction()
+            compose.onNodeWithText("만들고 참여").performClick()
+            compose.waitUntil(35_000) { compose.onAllNodesWithText("음성 연결 완료").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithContentDescription("마이크 켜기").performClick()
+            compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("마이크 끄기").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithContentDescription("마이크 끄기").performClick()
+            compose.waitUntil(15_000) { compose.onAllNodesWithContentDescription("마이크 켜기").fetchSemanticsNodes().isNotEmpty() }
+            compose.activityRule.scenario.recreate()
+            compose.waitUntil(15_000) { compose.onAllNodesWithText("음성 연결 완료").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithContentDescription("홈으로").performClick()
+            compose.onNodeWithContentDescription("현재 통화방 열기").assertIsDisplayed().performClick()
+            compose.clickReadyDescription("통화방 퇴장")
+            compose.waitUntil(15_000) { compose.onAllNodesWithText("방 만들기").fetchSemanticsNodes().isNotEmpty() }
+            compose.endTripFromMenu()
+            compose.waitUntil(15_000) { compose.onAllNodesWithText("목적지를 선택하면 동행을 찾습니다.").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithContentDescription("3km 방 검색").performScrollTo().assertIsNotEnabled()
+        } finally { runBlocking { runCatching { access.endTrip() } } }
     }
 }

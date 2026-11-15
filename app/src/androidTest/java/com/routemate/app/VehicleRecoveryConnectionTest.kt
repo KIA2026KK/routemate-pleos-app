@@ -21,6 +21,7 @@ class VehicleRecoveryConnectionTest {
         val provider = VehicleIdentityProvider { identity }
         val old = MemoryStore()
         val restored = MemoryStore()
+        try {
         val initial = HttpTripRegistration(BuildConfig.BACKEND_URL, { old }, provider, allowLocalHttp = true)
             .register(Destination("서울역", 37.5547, 126.9706))
         val previous = HttpVehicleAccountAccess(BuildConfig.BACKEND_URL, { old }, provider, allowLocalHttp = true)
@@ -43,6 +44,11 @@ class VehicleRecoveryConnectionTest {
         assertEquals("부산역", updated.destination.name)
         // A lost recovery response can be retried with the same unexpired key.
         assertEquals(initial.vehicleId, current.recover(key.value).vehicleId)
+        } finally {
+            val latest=if(restored.load()!=null)restored else old
+            runCatching { com.routemate.app.room.infrastructure.HttpRoomAccess(BuildConfig.BACKEND_URL,
+                {latest},provider,allowLocalHttp=true).endTrip() }
+        }
     }
 
     private class MemoryStore : SessionStore {

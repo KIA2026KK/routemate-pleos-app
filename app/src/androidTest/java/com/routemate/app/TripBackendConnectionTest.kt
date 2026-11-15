@@ -42,6 +42,8 @@ class TripBackendConnectionTest {
             assertEquals("부산역", changed.destination.name)
             assertEquals(129.042, changed.destination.longitude, 0.0)
         } finally {
+            runCatching { com.routemate.app.room.infrastructure.HttpRoomAccess(BuildConfig.BACKEND_URL,
+                {KeystoreSessionStore(context,scope)},provider,allowLocalHttp=true).endTrip() }
             context.deleteSharedPreferences("routemate_session_$hash")
             KeyStore.getInstance("AndroidKeyStore").apply { load(null); deleteEntry("routemate_session_key_$hash") }
         }
