@@ -13,9 +13,9 @@ class VoicePocSmokeTest {
     @get:Rule val compose = createAndroidComposeRule<MainActivity>()
 
     @Test fun opensVoicePocAndRequiresCredentialsBeforeJoin() {
-        compose.openParkedSettings()
-        compose.onNodeWithText("더보기").performClick()
-        compose.onNodeWithText("음성 통화 테스트").performClick()
+        compose.onNodeWithContentDescription("더보기").performClick()
+        compose.onNodeWithText("음성 연결 진단").performClick()
+        compose.confirmParkedIfNeeded()
         // Activity transition can briefly leave the process without a Compose root on CI.
         compose.waitUntil(timeoutMillis = 10_000) {
             compose.onAllNodesWithText("음성 통화 PoC")

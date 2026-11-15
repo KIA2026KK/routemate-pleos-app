@@ -31,8 +31,8 @@ class HttpRoomAccessTest {
         MockWebServer().use { server ->
             server.start();val access=api(server)
             server.enqueue(MockResponse().setBody("""[{"room":$room,"distanceMeters":1234}]"""))
-            assertEquals(1234L,access.nearby(10).single().distanceMeters)
-            assertEquals("/api/v1/rooms/nearby?radiusKm=10",server.takeRequest().path)
+            assertEquals(1234L,access.nearby(3).single().distanceMeters)
+            assertEquals("/api/v1/rooms/nearby?radiusKm=3",server.takeRequest().path)
             repeat(3){server.enqueue(MockResponse().setBody(room))}
             assertEquals(roomId,access.create("동행",true,3).id)
             val create=server.takeRequest();assertEquals("Bearer "+"a".repeat(43),create.getHeader("Authorization"));assertFalse(create.body.readUtf8().contains("vin"))

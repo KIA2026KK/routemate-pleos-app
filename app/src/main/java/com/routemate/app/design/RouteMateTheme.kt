@@ -15,11 +15,13 @@ val HyundaiBlue=Color(0xFF002C5F)
 val RouteCyan=Color(0xFF00AAD2)
 val RouteMint=Color(0xFFBCEDE7)
 private val DayColors=lightColorScheme(primary=HyundaiBlue,onPrimary=Color.White,secondary=Color(0xFF007E9D),
-    onSecondary=Color.White,tertiary=Color(0xFF006C61),background=Color(0xFFF3F6FA),surface=Color.White,
+    onSecondary=Color.White,secondaryContainer=Color(0xFFE1F3F7),onSecondaryContainer=HyundaiBlue,
+    tertiary=Color(0xFF006C61),background=Color(0xFFF3F6FA),surface=Color.White,
     onSurface=Color(0xFF102C48),onBackground=Color(0xFF102C48),surfaceVariant=Color(0xFFE8EFF5),
     onSurfaceVariant=Color(0xFF465C71),outline=Color(0xFF8295A7),error=Color(0xFFB3261E))
 private val NightColors=darkColorScheme(primary=Color(0xFF81DCEF),onPrimary=HyundaiBlue,secondary=RouteMint,
-    onSecondary=HyundaiBlue,background=Color(0xFF081725),surface=Color(0xFF102A41),onSurface=Color(0xFFF1F7FC),
+    onSecondary=HyundaiBlue,secondaryContainer=Color(0xFF164955),onSecondaryContainer=Color(0xFFE3F7F7),
+    background=Color(0xFF081725),surface=Color(0xFF102A41),onSurface=Color(0xFFF1F7FC),
     onBackground=Color(0xFFF1F7FC),surfaceVariant=Color(0xFF1C3B54),onSurfaceVariant=Color(0xFFC0D1E0),
     outline=Color(0xFF7D98AE),error=Color(0xFFFFB4AB))
 

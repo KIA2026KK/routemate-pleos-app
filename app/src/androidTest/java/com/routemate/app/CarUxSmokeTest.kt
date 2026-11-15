@@ -14,40 +14,41 @@ class CarUxSmokeTest {
     @get:Rule val compose=createAndroidComposeRule<MainActivity>()
 
     @Test fun primaryTouchTargetsAndDayNightToggleRemainAccessible() {
-        compose.onNodeWithText("목적지 등록").performScrollTo().assertWidthIsAtLeast(76.dp).assertHeightIsAtLeast(76.dp)
-        compose.onNodeWithText("야간").assertWidthIsAtLeast(76.dp).assertHeightIsAtLeast(76.dp).performClick()
-        compose.onNodeWithText("주간").assertIsDisplayed().performClick()
-        compose.onNodeWithText("야간").assertIsDisplayed()
+        compose.onNodeWithContentDescription("야간 모드").assertWidthIsAtLeast(76.dp).assertHeightIsAtLeast(76.dp).performClick()
+        compose.onNodeWithContentDescription("주간 모드").assertIsDisplayed().performClick()
+        compose.onNodeWithContentDescription("야간 모드").assertIsDisplayed()
+        compose.onNodeWithContentDescription("3km 방 검색").performScrollTo().assertIsSelected()
         compose.onNodeWithText("계정 관리").assertDoesNotExist()
-        compose.openParkedSettings()
+        compose.onNodeWithContentDescription("더보기").performClick()
         compose.onNodeWithText("계정 관리").assertIsDisplayed()
     }
 
     @Test fun offlinePrototypeLabelsSimulationAndSupportsTheGroupFlow() {
         assumeTrue("Requires the explicitly isolated offline prototype build",BuildConfig.PROTOTYPE_DEMO)
-        compose.onNodeWithText("프로토타입 체험 · 예시 차량·통화방이며 실제 음성은 연결되지 않습니다").assertIsDisplayed()
-        compose.onNodeWithText("목적지 등록").performScrollTo().assertIsEnabled().performClick()
-        compose.waitUntil(10_000){compose.onAllNodesWithText("현재 운행 · 서울역 (샘플)").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("5km 방 검색").performScrollTo().performClick()
-        compose.waitUntil(10_000){compose.onAllNodesWithText("서울역으로 가는 길 참여").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("서울역으로 가는 길 참여").performScrollTo()
+        compose.onNodeWithText("체험 모드 · 실제 음성 없음").assertIsDisplayed()
+        compose.waitUntil(10_000){compose.onAllNodesWithText("목적지 등록 완료").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithContentDescription("3km 방 검색").performScrollTo().assertHeightIsAtLeast(76.dp)
+        compose.onNodeWithContentDescription("광주송정역 동행 참여").performScrollTo()
         capture("dashboard-results.png")
-        compose.onNodeWithText("서울역으로 가는 길 참여").performScrollTo().performClick()
-        compose.waitUntil(10_000){compose.onAllNodesWithText("통화 화면 체험").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("통화 화면 체험").performScrollTo().performClick()
-        compose.waitUntil(10_000){compose.onAllNodesWithText("통화 화면 체험 중").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("체험 모드에서는 실제 음성을 송수신하지 않습니다.").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithContentDescription("광주송정역 동행 참여").performClick()
+        compose.waitUntil(10_000){compose.onAllNodesWithText("통화 체험 중").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithContentDescription("마이크 켜기").performScrollTo().assertHeightIsAtLeast(100.dp)
         capture("dashboard-call.png")
         if(InstrumentationRegistry.getArguments().getString("prototypeScreenshots")=="true"){
-            compose.onNodeWithText("야간").performClick();compose.waitForIdle();capture("dashboard-night.png")
-            compose.onNodeWithText("주간").performClick()
+            compose.onNodeWithContentDescription("야간 모드").performClick();compose.waitForIdle();capture("dashboard-night.png")
+            compose.onNodeWithContentDescription("주간 모드").performClick()
         }
         compose.onNodeWithText("음성 연결 완료").assertDoesNotExist()
-        compose.onNodeWithText("통화방 퇴장").performScrollTo().performClick()
-        compose.waitUntil(10_000){compose.onAllNodesWithText("새 방 만들기").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithText("운행 종료").performScrollTo().performClick()
-        compose.onNodeWithText("운행 종료 확인").performClick()
-        compose.waitUntil(10_000){compose.onAllNodesWithText("먼저 운행 목적지를 등록하세요.").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithContentDescription("통화방 퇴장").performScrollTo().performClick()
+        compose.waitUntil(10_000){compose.onAllNodesWithText("방 만들기").fetchSemanticsNodes().isNotEmpty()}
+        compose.clickReadyText("방 만들기");compose.confirmParkedIfNeeded()
+        compose.onNodeWithText("방 이름").assertIsDisplayed()
+        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
+        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+        compose.waitUntil(10_000){compose.onAllNodesWithText("방 이름").fetchSemanticsNodes().isEmpty()}
+        compose.endTripFromMenu()
+        compose.waitUntil(10_000){compose.onAllNodesWithText("목적지를 선택하면 동행을 찾습니다.").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithContentDescription("3km 방 검색").performScrollTo().assertIsNotEnabled()
     }
     private fun capture(name:String){
         if(InstrumentationRegistry.getArguments().getString("prototypeScreenshots")!="true")return

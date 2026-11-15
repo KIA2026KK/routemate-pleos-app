@@ -11,10 +11,10 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 
 data class RoomUiState(val snapshot: RoomSnapshot=RoomSnapshot(null,null,null),val nearby: List<NearbyRoom> = emptyList(),
-    val radiusKm: Int=5,val busy: Boolean=false,val error: RoomError?=null,val voice: VoiceState=VoiceState())
+    val radiusKm: Int=RoomPolicy.defaultRadiusKm,val busy: Boolean=false,val error: RoomError?=null,val voice: VoiceState=VoiceState())
 
 class RoomViewModel(private val rooms: ManageRooms,private val voice: VoiceCall,private val trips: TripRegistration,
-    private val heartbeatMs: Long=20_000) : ViewModel() {
+    private val heartbeatMs: Long=RoomPolicy.heartbeatMs) : ViewModel() {
     private val mutableState=MutableStateFlow(RoomUiState())
     val state=mutableState.asStateFlow()
     private var action: Job?=null
@@ -28,6 +28,8 @@ class RoomViewModel(private val rooms: ManageRooms,private val voice: VoiceCall,
     private var destinationRevision=0L
     private var syncPending=false
     private var refreshPending=false
+    private var registrationPending=false
+    private var destinationStarted=false
     private fun error(e: Exception)=when(e){
         is RoomAccessException -> e.reason
         is TripRegistrationException -> when(e.reason){
@@ -69,7 +71,26 @@ class RoomViewModel(private val rooms: ManageRooms,private val voice: VoiceCall,
     }
     fun refresh(){
         if(state.value.busy){refreshPending=true;return}
-        refreshPending=false;perform { reload() }
+        refreshPending=false;perform { reload();loadNearby() }
+    }
+    private suspend fun loadNearby() {
+        if(state.value.snapshot.tripId==null||state.value.snapshot.room!=null)return
+        val revision=destinationRevision
+        val found=rooms.nearby(state.value.radiusKm)
+        currentCoroutineContext().ensureActive()
+        if(revision==destinationRevision)mutableState.update { it.copy(nearby=found) }
+    }
+    /** Automatic startup is once per destination, including across Activity recreation. */
+    fun startDestination(value: Destination) {
+        if(destinationStarted&&value==desiredDestination)return
+        destinationStarted=true
+        registerDestination(value)
+    }
+    fun registerDestination(value: Destination) {
+        if(state.value.snapshot.room!=null&&value!=state.value.snapshot.destination)stopVoice()
+        destinationChanged(value)
+        registrationPending=true
+        syncDestination()
     }
     fun search(radiusKm: Int)=perform {
         val revision=destinationRevision
@@ -95,7 +116,8 @@ class RoomViewModel(private val rooms: ManageRooms,private val voice: VoiceCall,
     }
     fun endTrip() {
         stopVoice()
-        perform { rooms.endTrip();currentCoroutineContext().ensureActive();mutableState.value=RoomUiState();heartbeat?.cancel() }
+        registrationPending=false;syncPending=false
+        perform { rooms.endTrip();currentCoroutineContext().ensureActive();mutableState.value=RoomUiState(radiusKm=state.value.radiusKm);heartbeat?.cancel() }
     }
     fun connect(permitted: Boolean) {
         if(!permitted){mutableState.update { it.copy(voice=VoiceState(status=VoiceStatus.ERROR,error=VoiceFailure.PERMISSION)) };return}
@@ -148,23 +170,42 @@ class RoomViewModel(private val rooms: ManageRooms,private val voice: VoiceCall,
         destinationRevision++
         mutableState.update { it.copy(nearby=emptyList()) }
     }
-    /** Only sync a known active trip; initial destination loading never creates an account. */
+    /** Missing-trip creation requires an explicit startup/selection request, never a plain refresh. */
     fun syncDestination(){
         syncPending=true
         if(state.value.busy)return
         syncPending=false
+        val registerMissing=registrationPending
+        registrationPending=false
         perform {
-            val snapshot=rooms.snapshot()
-            currentCoroutineContext().ensureActive()
             val destination=desiredDestination
-            if(snapshot.tripId!=null&&destination!=null&&destination!=snapshot.destination)trips.register(destination)
-            if(snapshot.tripId!=null&&destination==null)rooms.endTrip()
+            if(registerMissing&&destination!=null) {
+                // Bootstrap may discover a room from the previous app version/process.
+                // A missing/invalid local credential is still checked by register; it never gets silently replaced.
+                val previous=try {rooms.snapshot()} catch(e: RoomAccessException) {
+                    if(e.reason!=RoomError.UNAUTHORIZED)throw e
+                    RoomSnapshot(null,null,null)
+                }
+                if(previous.room!=null&&previous.destination!=destination){stopVoice();rooms.leave(previous.room.id)}
+                trips.register(destination)
+            }
+            else {
+                val snapshot=rooms.snapshot()
+                currentCoroutineContext().ensureActive()
+                if(snapshot.tripId!=null&&destination!=null&&destination!=snapshot.destination)trips.register(destination)
+                if(snapshot.tripId!=null&&destination==null)rooms.endTrip()
+            }
             reload()
+            loadNearby()
         }
     }
-    fun foreground(){foreground=true;viewModelScope.launch {cleanup?.join();if(foreground)refresh()}}
+    fun foreground(){
+        if(foreground)return
+        foreground=true
+        viewModelScope.launch {cleanup?.join();if(foreground)refresh()}
+    }
     fun background(){
-        foreground=false;syncPending=false;refreshPending=false;generation++;action?.cancel();heartbeat?.cancel();stopVoice()
+        foreground=false;syncPending=false;refreshPending=false;registrationPending=false;generation++;action?.cancel();heartbeat?.cancel();stopVoice()
         mutableState.update { it.copy(busy=false) }
         val room=state.value.snapshot.room ?: return
         cleanup=viewModelScope.launch {

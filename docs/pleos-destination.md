@@ -4,7 +4,7 @@
 
 NaviHelper는 Pleos Navigation 서비스에 연결하는 Android SDK입니다.
 목적지 조회는 SDK 메서드와 콜백으로 처리하고, 조회한 좌표는 별도의 우리 서버 REST API로 전송합니다.
-현재 구현 범위는 SDK 어댑터이며 백엔드 목적지 등록 API 연동은 후속 작업입니다.
+수신한 목적지를 백엔드 목적지 등록 API에 자동 반영합니다. 최신 화면 흐름은 [차량 UX](minimal-car-ux.md)를 따릅니다.
 
 Pleos의 [Vehicle Data REST API 목록](https://document.pleos.ai/api-reference/vehicle-data-api/intro)에는
 차량 위치·상태 조회 등이 안내되어 있지만 내비게이션의 최종 목적지 조회는 확인되지 않았습니다.
@@ -41,7 +41,7 @@ adb shell am start -n com.routemate.app/.MainActivity
 ```
 
 실행한 화면의 안내 문구가 Mock인지 Pleos인지 확인합니다.
-Mock 화면의 서울역 샘플과 Pleos에서 실제로 수신한 목적지를 구분해야 합니다.
+Mock 화면의 광주송정역 예시와 Pleos에서 실제로 수신한 목적지를 구분해야 합니다.
 
 ## SDK 확인 근거
 
