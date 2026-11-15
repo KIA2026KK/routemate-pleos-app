@@ -29,7 +29,7 @@ class SustainedCallConnectionTest {
         override fun load()=token
         override fun save(token:String){this.token=token}
     }
-    @Test fun threeSessionsKeepAudioTracksFor120SecondsWithActivityStopped()=runBlocking {
+    @Test fun threeSessionsKeepAudioTracksFor120SecondsWithActivityStopped()=runBlocking<Unit> {
         assumeTrue(BuildConfig.BACKEND_URL.isNotBlank() && InstrumentationRegistry.getArguments().getString("sustainedE2E")=="true")
         val context=InstrumentationRegistry.getInstrumentation().targetContext
         val session=(context.applicationContext as RouteMateApplication).graph.session

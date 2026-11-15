@@ -135,5 +135,6 @@ PostGIS 반경 검색, 방 생성·참여·원자적 이동·초대 코드, 단�
 - [실행한 테스트와 미검증 항목](docs/TEST_RESULTS.md)
 - [공개 전 보안 점검](docs/PUBLIC_REVIEW.md)
 - [게시용 Release 설명 초안](docs/RELEASE_NOTES.md)
+- [다음 AI 인계 문서](docs/AI_HANDOFF.md)
 
 최종 커밋 번호는 커밋 후 별도 전달합니다. 이 문서에 자기 자신의 커밋 번호를 반복 기입하지 않습니다.

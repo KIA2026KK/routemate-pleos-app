@@ -31,7 +31,35 @@ RouteMate 0.3.0 (3), Android 패키지 `com.routemate.app`.
 | 로컬 서명 스크립트 | PowerShell 문법 파싱 성공. 실제 키 생성·release 서명은 사용자 입력 대기 |
 
 원시 산출물은 Git 제외된 `app/build/ux-verification/`, `app/build/submission/`에 보관합니다.
-테스트용 debug APK는 별도 `app/build/distributions/RouteMate-render-test-v0.3.0.apk`이며 제출 release와 다릅니다.
+테스트용 debug APK는 `app/build/distributions/RouteMate-render-test.apk`이며 제출 release와 다릅니다.
+
+## APK 산출물
+
+모두 `com.routemate.app`, 0.3.0 (3), Render 테스트 API 주소 사용.
+unsigned 산출물은 최종 지정 APK가 아니며 Android 설치 불가. 팀 키로 서명하면 해시가 달라집니다.
+
+| 파일 (저장소 기준) | 크기 bytes | 서명 / 용도 |
+| --- | --- | --- |
+| `app/build/distributions/RouteMate-render-test.apk` | 69,695,352 | 검증된 Android Debug 인증서 / 휴대폰 Mock 시험 |
+| `app/build/submission/unsigned/RouteMate-Phone-release-unsigned.apk` | 65,508,123 | 미서명 release / Mock |
+| `app/build/submission/unsigned/RouteMate-Pleos-release-unsigned.apk` | 86,102,567 | 미서명 release / 실제 Pleos SDK |
+
+SHA-256:
+
+```text
+RouteMate-render-test.apk
+9F4A0FE13DA1447D837A4D13EC31704BED5CD760D91A5E50B96BA148DD1068BF
+RouteMate-Phone-release-unsigned.apk
+B591C3CCE9758B6C45AEB6F4E8E12C58ABE96BF7622502A8DA95BF1D33452C1C
+RouteMate-Pleos-release-unsigned.apk
+876739098387063C16BD72CBB74969A1A97FA3D3F79A311317BF38085E4BBC3D
+```
+
+Pleos APK의 실제 DEX `BuildConfig`에서 `BUILD_TYPE=release`, `DEBUG=false`,
+`PROTOTYPE_DEMO=false`, 두 `USE_PLEOS_*` 값 true 및 서버 주소 확인.
+두 unsigned APK의 서명 부재, debug APK 서명 유효 여부를 `apksigner verify`로 구분.
+현재 크기는 Git CLI의 100 MiB 제한 이내. 웹 파일 업로드 제한에 걸리면 Git CLI 또는 GitHub Releases 이용.
+정확한 절대 경로·해시는 로컬 `app/build/submission/APK_INVENTORY.json`에도 보관.
 
 ## 실패 기록과 재검증
 
@@ -41,6 +69,10 @@ RouteMate 0.3.0 (3), Android 패키지 `com.routemate.app`.
 - 세 SDK 세션 시험에서 일부 트랙 수 표시가 마지막 SDK 이벤트 이후 갱신되지 않는 경우를 확인.
   SDK 2.30.0의 `audioTrackPublications` Flow를 직접 관찰하도록 보완.
 - 위 두 항목은 수정 후 장치 재검증 결과를 아래에 기록합니다. 실패 로그는 삭제하지 않습니다.
+- DNS 복구 후 클라우드 7개 시험 중 5개 통과·2개 실패 기록. 두 실패는 위 장시간 시험 종료와 트랙 수 조건이며,
+  수정 후 로컬 AVD 부팅 문제로 최종 재실행 미완료. 이 두 항목을 최종 통과로 집계하지 않음.
+- 첫 PR 장치 CI는 장시간 시험 메서드가 마지막 로그의 Int를 반환하여 JUnit의 void 조건을 위반한 초기화 오류로 실패.
+  `runBlocking<Unit>`로 반환형을 고정하여 수정. 이 실패를 우회하지 않고 새 커밋으로 전체 CI 재실행.
 
 ## 실제 음성과 미검증 범위
 
@@ -51,6 +83,8 @@ SDK 연결·마이크 트랙 발행/구독은 **두 물리 단말에서 사람�
 - 실제 Pleos VIN·목적지·변경 이벤트·차량 마이크/오디오: 미검증.
 - 두 실제 단말의 청취·에코·음질·장시간 통화·네트워크 전환·Samsung 절전 정책: 미검증.
 - 이번 PC의 Docker 엔진 문제로 전체 PostGIS 테스트 로컬 재실행 미완료. 원격 GitHub CI 통합 테스트와 실제 API 시험을 별도 기록.
+- 재사용 가능한 원격 검증 스크립트는 `tools/submission/Check-RemoteApi.ps1`와 `Check-InviteSwitch.ps1`.
+  합성 테스트 운행만 생성·정리하며 결과는 `app/build/submission/`에 저장.
 
 ## 재현 명령
 
