@@ -14,7 +14,10 @@ import io.livekit.android.util.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
+@OptIn(ExperimentalCoroutinesApi::class, kotlinx.coroutines.FlowPreview::class)
 internal class LiveKitVoiceClient(context: Context) : VoiceClient {
     // WebRTC's legacy emulator detection forces 8 kHz even on modern AVDs. That path
     // triggered an AudioRecordJava native span assertion during repeated API 36 calls.
@@ -33,9 +36,19 @@ internal class LiveKitVoiceClient(context: Context) : VoiceClient {
                 if (room.state != Room.State.DISCONNECTED) send(snapshot())
             }
         }
+        launch {
+            room::remoteParticipants.flow.flatMapLatest { remotes ->
+                merge(*(listOf(room.localParticipant) + remotes.values).map { participant ->
+                    merge(participant::isSpeaking.flow.map { Unit }, participant::audioLevel.flow.map { Unit },
+                        participant::isMicrophoneEnabled.flow.map { Unit }, participant::audioTrackPublications.flow.map { Unit })
+                }.toTypedArray())
+            }.sample(100).collect { if (room.state != Room.State.DISCONNECTED) send(snapshot()) }
+        }
         room.events.collect { event ->
             send(if (event is RoomEvent.FailedToConnect) {
                 VoiceState(status = VoiceStatus.ERROR, error = VoiceFailure.CONNECTION)
+            } else if(event is RoomEvent.Disconnected) {
+                snapshot().copy(disconnectReason=event.reason.name)
             } else snapshot())
         }
     }
@@ -51,6 +64,11 @@ internal class LiveKitVoiceClient(context: Context) : VoiceClient {
         participants = (listOf(room.localParticipant) + room.remoteParticipants.values)
             .mapNotNull { it.identity?.value }.sorted(),
         microphoneEnabled = room.localParticipant.isMicrophoneEnabled,
+        members = (listOf(room.localParticipant) + room.remoteParticipants.values).mapNotNull { participant ->
+            participant.identity?.value?.let { id -> VoiceParticipant(id, participant.name.orEmpty().take(40),
+                participant === room.localParticipant, participant.isSpeaking&&participant.isMicrophoneEnabled, participant.isMicrophoneEnabled,
+                participant.audioLevel.coerceIn(0f, 1f)) }
+        }.sortedWith(compareByDescending<VoiceParticipant> { it.local }.thenBy { it.id }),
         subscribedAudioTracks = room.remoteParticipants.values.sumOf { participant ->
             participant.trackPublications.values.count { it.track is RemoteAudioTrack }
         },

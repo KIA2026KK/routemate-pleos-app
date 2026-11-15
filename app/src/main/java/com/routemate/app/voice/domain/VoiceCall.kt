@@ -22,6 +22,8 @@ class VoiceConnection(val url: String, val token: String) {
 }
 
 enum class VoiceStatus { IDLE, CONNECTING, CONNECTED, RECONNECTING, DISCONNECTED, ERROR }
+data class VoiceParticipant(val id: String, val name: String = "", val local: Boolean = false,
+    val speaking: Boolean = false, val microphoneEnabled: Boolean = false, val audioLevel: Float = 0f)
 
 data class VoiceState(
     val status: VoiceStatus = VoiceStatus.IDLE,
@@ -30,6 +32,8 @@ data class VoiceState(
     val microphoneEnabled: Boolean = false,
     val subscribedAudioTracks: Int = 0,
     val error: VoiceFailure? = null,
+    val members: List<VoiceParticipant> = emptyList(),
+    val disconnectReason: String? = null,
 )
 
 enum class VoiceFailure { CONNECTION, TIMEOUT, MICROPHONE, PERMISSION, INVALID_INPUT }

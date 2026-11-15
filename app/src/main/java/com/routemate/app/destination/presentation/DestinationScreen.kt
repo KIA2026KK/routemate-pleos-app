@@ -18,17 +18,19 @@ import com.routemate.app.destination.domain.DestinationFailure
 
 @Composable fun DestinationScreen(state: DestinationState, usePleos: Boolean, active: Boolean, busy: Boolean,
     configured: Boolean, hasError: Boolean, onDestination: () -> Unit, onAccount: () -> Unit,
-    onVoicePoc: (() -> Unit)?, prototype: Boolean, roomContent: @Composable () -> Unit, overlayContent: @Composable () -> Unit) {
+    onVoicePoc: (() -> Unit)?, prototype: Boolean, roomContent: @Composable () -> Unit, overlayContent: @Composable () -> Unit,
+    bannerContent:@Composable ()->Unit={},callContent:(@Composable ()->Unit)?=null) {
     var night by rememberSaveable { mutableStateOf(false) }
     var menu by remember { mutableStateOf(false) }
     val activity = LocalActivity.current
     val view = LocalView.current
+    val effectiveNight=night||callContent!=null
     SideEffect { activity?.window?.let { window -> WindowCompat.getInsetsController(window, view).apply {
-        isAppearanceLightStatusBars = !night; isAppearanceLightNavigationBars = !night
+        isAppearanceLightStatusBars = !effectiveNight; isAppearanceLightNavigationBars = !effectiveNight
     } } }
-    RouteMateTheme(night) {
+    RouteMateTheme(effectiveNight) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(Modifier.safeDrawingPadding()) {
+            if(callContent!=null)callContent() else Column(Modifier.safeDrawingPadding()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("RouteMate", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary)
                     RouteIconButton(if (night) "주간 모드" else "야간 모드", if (night) RouteIcons.Sun else RouteIcons.Moon, { night = !night })
@@ -42,6 +44,7 @@ import com.routemate.app.destination.domain.DestinationFailure
                 }
                 if (prototype) Text("체험 모드 · 실제 음성 없음", Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                bannerContent()
                 BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                     val destinationCard: @Composable () -> Unit = {
                         VehicleCard(Modifier.fillMaxWidth()) {

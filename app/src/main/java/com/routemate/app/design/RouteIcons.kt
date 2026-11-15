@@ -13,6 +13,8 @@ private fun glyph(name: String, block: PathBuilder.() -> Unit) = ImageVector.Bui
         strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round, pathBuilder = block)
 }.build()
 object RouteIcons {
+    val Back = glyph("Back") { moveTo(19f,12f);lineTo(5f,12f);moveTo(11f,6f);lineTo(5f,12f);lineTo(11f,18f) }
+    val Phone = glyph("Phone") { moveTo(3f,14f);curveTo(6f,6f,18f,6f,21f,14f);lineTo(19f,18f);lineTo(15f,16f);lineTo(15f,13f);curveTo(13f,12f,11f,12f,9f,13f);lineTo(9f,16f);lineTo(5f,18f);close() }
     val Search = glyph("Search") { moveTo(20f,20f);lineTo(15.5f,15.5f);moveTo(10.5f,3f);curveTo(20.5f,3f,20.5f,18f,10.5f,18f);curveTo(.5f,18f,.5f,3f,10.5f,3f);close() }
     val Refresh = glyph("Refresh") { moveTo(20f,8f);curveTo(15f,-1f,2f,3f,3f,13f);curveTo(4f,23f,18f,23f,21f,14f);moveTo(20f,3f);lineTo(20f,8f);lineTo(15f,8f) }
     val Moon = glyph("Moon") { moveTo(20f,15f);curveTo(8f,21f,3f,10f,11f,3f);curveTo(0f,3f,0f,22f,13f,21f);curveTo(16f,21f,19f,18f,20f,15f);close() }
