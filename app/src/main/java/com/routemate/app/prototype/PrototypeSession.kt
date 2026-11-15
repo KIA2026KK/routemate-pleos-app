@@ -15,9 +15,9 @@ class PrototypeSession : RoomAccess,TripRegistration {
     private var current:RoomInfo?=null
     private val expiry=Instant.now().plusSeconds(7200).toString()
     private val examples=listOf(
-        NearbyRoom(RoomInfo("8f394f60-c849-4dc7-b9b1-003ccf78bc11","서울역으로 가는 길",true,4,2,expiry),1200),
+        NearbyRoom(RoomInfo("8f394f60-c849-4dc7-b9b1-003ccf78bc11","광주송정역 동행",true,4,2,expiry),1200),
         NearbyRoom(RoomInfo("8f394f60-c849-4dc7-b9b1-003ccf78bc12","여유로운 도심 드라이브",true,6,3,expiry),3400),
-        NearbyRoom(RoomInfo("8f394f60-c849-4dc7-b9b1-003ccf78bc13","함께하는 저녁 이동",true,4,1,expiry),8200),
+        NearbyRoom(RoomInfo("8f394f60-c849-4dc7-b9b1-003ccf78bc13","함께하는 저녁 이동",true,4,1,expiry),4800),
     )
     override suspend fun register(destination:Destination):RegisteredTrip{
         if(tripId==null)tripId=UUID.randomUUID().toString()
@@ -25,7 +25,7 @@ class PrototypeSession : RoomAccess,TripRegistration {
         return RegisteredTrip(tripId!!,destination,"prototype-vehicle","*************0001")
     }
     override suspend fun snapshot()=RoomSnapshot(tripId,destination,current)
-    override suspend fun nearby(radiusKm:Int):List<NearbyRoom>{requireTrip();return examples.filter{it.distanceMeters<=radiusKm*1000}}
+    override suspend fun nearby(radiusKm:Int):List<NearbyRoom>{require(radiusKm in RoomPolicy.radii);requireTrip();return examples.filter{it.distanceMeters<=radiusKm*1000}}
     override suspend fun create(name:String,isPublic:Boolean,capacity:Int):RoomInfo{
         requireTrip();return RoomInfo(UUID.randomUUID().toString(),name,isPublic,capacity,1,expiry).also{current=it}
     }

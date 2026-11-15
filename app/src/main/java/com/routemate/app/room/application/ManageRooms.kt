@@ -3,7 +3,7 @@ import com.routemate.app.room.domain.RoomAccess
 /** Validates user choices before invoking remote transport. */
 class ManageRooms(private val access: RoomAccess) : RoomAccess by access {
     override suspend fun nearby(radiusKm: Int): List<com.routemate.app.room.domain.NearbyRoom> {
-        require(radiusKm==5||radiusKm==10)
+        require(radiusKm in com.routemate.app.room.domain.RoomPolicy.radii)
         return access.nearby(radiusKm)
     }
     override suspend fun create(name: String,isPublic: Boolean,capacity: Int): com.routemate.app.room.domain.RoomInfo {

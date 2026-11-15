@@ -2,7 +2,15 @@ package com.routemate.app.destination.infrastructure
 
 import com.routemate.app.destination.domain.Destination
 import com.routemate.app.destination.domain.DestinationProvider
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
-class MockDestinationProvider : DestinationProvider {
-    override suspend fun currentDestination() = Destination("서울역 (샘플)", 37.5547, 126.9706)
+class MockDestinationProvider(
+    initial: Destination = ExampleDestinations.songjeong.destination,
+    private val save: (Destination) -> Unit = {},
+) : DestinationProvider {
+    private val selected = MutableStateFlow(initial)
+    override suspend fun currentDestination() = selected.value
+    override fun observeDestinations() = selected.asStateFlow()
+    fun select(destination: Destination) { save(destination); selected.value = destination }
 }

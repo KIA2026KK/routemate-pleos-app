@@ -19,12 +19,13 @@ sealed interface DestinationState {
     data class Error(val reason: DestinationFailure = DestinationFailure.UNKNOWN) : DestinationState
 }
 
-class DestinationViewModel(private val loadDestination: LoadDestination) : ViewModel() {
+class DestinationViewModel(private val loadDestination: LoadDestination, private val onSelect: ((Destination) -> Unit)? = null) : ViewModel() {
     private val mutableState = MutableStateFlow<DestinationState>(DestinationState.Empty)
     val state = mutableState.asStateFlow()
     private var observation: Job? = null
 
     init { refresh() }
+    fun select(destination: Destination) { onSelect?.invoke(destination) }
 
     fun refresh() {
         if (mutableState.value == DestinationState.Loading) return

@@ -44,7 +44,7 @@ class MvpConnectionTest {
                 trips.forEachIndexed{index,trip->trip.register(Destination("MVP 목적지",36.0+index*0.001,127.0))}
                 room=rooms[0].create("MVP 연결 ${UUID.randomUUID().toString().take(8)}",true,3)
                 val id=room!!.id
-                assertTrue(rooms[1].nearby(5).any{it.room.id==id})
+                assertTrue(rooms[1].nearby(3).any{it.room.id==id})
                 rooms[1].join(id);rooms[2].join(id)
                 assertEquals(3,rooms[0].snapshot().room!!.participants)
                 val connections=rooms.map{it.voice(id)}

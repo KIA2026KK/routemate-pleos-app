@@ -25,7 +25,7 @@ class HttpRoomAccess(baseUrl: String,private val stores: (VehicleIdentity)->Sess
         RoomSnapshot(trip?.getString("id"),trip?.getJSONObject("destination")?.let { Destination(it.getString("name"),it.getDouble("latitude"),it.getDouble("longitude")) },current?.let(::room))
     }
     override suspend fun nearby(radiusKm: Int)=access { token ->
-        require(radiusKm==5||radiusKm==10)
+        require(radiusKm in RoomPolicy.radii)
         val array=JSONArray(http.get("/api/v1/rooms/nearby",token,mapOf("radiusKm" to radiusKm.toString())))
         List(array.length()) { index -> val value=array.getJSONObject(index);NearbyRoom(room(value.getJSONObject("room")),value.getLong("distanceMeters")) }
     }

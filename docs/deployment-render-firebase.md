@@ -114,7 +114,7 @@ Google Play services 의존성도 사용하는 Firebase SDK별로 Pleos 환경�
 4. Flyway 적용 로그, DB/PostGIS 버전, `/actuator/health`의 200/UP을 확인한다. 스키마를 콘솔에서 수동 재작성하지 않는다.
 5. 스테이징에만 Mock 차량을 허용하고 앱을 `-PbackendUrl=https://<스테이징주소>`로 빌드한다.
    운영은 실제 VIN 제공자와 `ALLOW_MOCK_VEHICLE=false`를 사용한다.
-6. 목적지 → 5/10km 검색 → 방 생성/참여 → 서버 발급 토큰 → 음성 발행/구독 → 퇴장/종료를 원격 환경에서도 확인한다.
+6. 목적지 → 3/5km 검색 → 방 생성/참여 → 서버 발급 토큰 → 음성 발행/구독 → 퇴장/종료를 원격 환경에서도 확인한다.
 7. DB 백업·복원 절차, 비용 알림, 에러 로그·헬스 모니터링, 비밀키 교체 담당자를 정한다.
 8. 릴리스 APK/AAB 서명을 준비하고, 필요하면 Firebase App Distribution으로 테스트 APK를 배포한다.
 9. 실제 Pleos의 VIN·목적지·권한·주행 중 제한·오디오 라우팅과 물리 단말 2~3대의 청취/재접속을 검증한다.
