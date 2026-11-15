@@ -17,6 +17,7 @@ class CarUxSmokeTest {
         compose.onNodeWithContentDescription("야간 모드").assertWidthIsAtLeast(76.dp).assertHeightIsAtLeast(76.dp).performClick()
         compose.onNodeWithContentDescription("주간 모드").assertIsDisplayed().performClick()
         compose.onNodeWithContentDescription("야간 모드").assertIsDisplayed()
+        compose.onNodeWithContentDescription("3km 방 검색").performScrollTo().assertIsSelected()
         compose.onNodeWithText("계정 관리").assertDoesNotExist()
         compose.onNodeWithContentDescription("더보기").performClick()
         compose.onNodeWithText("계정 관리").assertIsDisplayed()
@@ -26,7 +27,7 @@ class CarUxSmokeTest {
         assumeTrue("Requires the explicitly isolated offline prototype build",BuildConfig.PROTOTYPE_DEMO)
         compose.onNodeWithText("체험 모드 · 실제 음성 없음").assertIsDisplayed()
         compose.waitUntil(10_000){compose.onAllNodesWithText("목적지 등록 완료").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithContentDescription("3km 방 검색").performScrollTo().assertHeightIsAtLeast(64.dp)
+        compose.onNodeWithContentDescription("3km 방 검색").performScrollTo().assertHeightIsAtLeast(76.dp)
         compose.onNodeWithContentDescription("광주송정역 동행 참여").performScrollTo()
         capture("dashboard-results.png")
         compose.onNodeWithContentDescription("광주송정역 동행 참여").performClick()
