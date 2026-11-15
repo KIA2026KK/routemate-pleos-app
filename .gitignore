@@ -36,3 +36,16 @@ local.properties
 .env.*
 !.env.example
 captures/
+
+# Signing material belongs outside the repository.
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+key.properties
+keystore.properties
+*service-account*.json
+*firebase-adminsdk*.json
+*.apk
+!apk/*.apk

@@ -10,7 +10,8 @@ import org.junit.Rule
 import org.junit.Test
 
 class VoicePocSmokeTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order=0) val sessionFixture=ResetRoomSessionRule()
+    @get:Rule(order=1) val compose = createAndroidComposeRule<MainActivity>()
 
     @Test fun opensVoicePocAndRequiresCredentialsBeforeJoin() {
         compose.onNodeWithContentDescription("더보기").performClick()

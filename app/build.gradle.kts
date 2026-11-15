@@ -13,6 +13,15 @@ val backendUrl = providers.gradleProperty("backendUrl").orElse("").get().trimEnd
 val prototypeDemo = providers.gradleProperty("prototypeDemo").orElse("false").get().toBooleanStrict()
 require(!prototypeDemo || (destinationProvider=="mock"&&vehicleProvider=="mock"&&backendUrl.isBlank())) { "Offline prototype requires mock providers and no backend URL" }
 val mvpTestApplicationId = providers.gradleProperty("mvpTestApplicationId").orNull
+val releaseKey = mapOf(
+    "store" to providers.environmentVariable("ROUTEMATE_KEYSTORE").orNull,
+    "alias" to providers.environmentVariable("ROUTEMATE_KEY_ALIAS").orNull,
+    "storePassword" to providers.environmentVariable("ROUTEMATE_STORE_PASSWORD").orNull,
+    "keyPassword" to providers.environmentVariable("ROUTEMATE_KEY_PASSWORD").orNull,
+)
+require(releaseKey.values.all { it.isNullOrBlank() } || releaseKey.values.all { !it.isNullOrBlank() }) {
+    "Supply all four ROUTEMATE signing environment variables, or none for an unsigned release"
+}
 require(mvpTestApplicationId == null || mvpTestApplicationId.matches(Regex("com\\.routemate\\.app\\.mvpverify[a-f0-9]{8}"))) { "Invalid isolated MVP test application ID" }
 require(backendUrl.none { it == '"' || it == '\\' || it.isISOControl() }) { "Invalid backendUrl" }
 android {
@@ -22,8 +31,8 @@ android {
         applicationId = "com.routemate.app"
         minSdk = if (destinationProvider == "pleos" || vehicleProvider == "pleos") 28 else 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("boolean", "USE_PLEOS_DESTINATION", (destinationProvider == "pleos").toString())
         buildConfigField("boolean", "USE_PLEOS_VEHICLE", (vehicleProvider == "pleos").toString())
@@ -34,7 +43,22 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+    signingConfigs {
+        if (!releaseKey["store"].isNullOrBlank()) {
+            create("submission") {
+                storeFile = file(requireNotNull(releaseKey["store"]))
+                keyAlias = releaseKey["alias"]
+                storePassword = releaseKey["storePassword"]
+                keyPassword = releaseKey["keyPassword"]
+            }
+        }
+    }
     buildTypes {
+        getByName("release") {
+            isDebuggable = false
+            isMinifyEnabled = false
+            if (!releaseKey["store"].isNullOrBlank()) signingConfig = signingConfigs.getByName("submission")
+        }
         getByName("debug") {
             if(prototypeDemo){
                 require(mvpTestApplicationId==null) { "Use a separate prototype install" }

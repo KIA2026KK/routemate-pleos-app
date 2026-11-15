@@ -7,7 +7,8 @@ import org.junit.Test
 import org.junit.Assume.assumeFalse
 
 class DestinationSmokeTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order=0) val sessionFixture=ResetRoomSessionRule()
+    @get:Rule(order=1) val compose = createAndroidComposeRule<MainActivity>()
 
     @Test fun defaultsToSongjeongAndSelectsRoadAddressWithoutSampleReloadButton() {
         assumeFalse("This smoke test is for the explicit Mock build", BuildConfig.USE_PLEOS_DESTINATION)

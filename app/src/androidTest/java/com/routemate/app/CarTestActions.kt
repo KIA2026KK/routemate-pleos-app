@@ -6,11 +6,24 @@ import androidx.compose.ui.semantics.SemanticsProperties
 
 internal fun ComposeContentTestRule.clickReadyText(text: String) {
     waitUntil(40_000){onAllNodesWithText(text).fetchSemanticsNodes().any{!it.config.contains(SemanticsProperties.Disabled)}}
-    onNodeWithText(text).performScrollTo().performClick()
+    val node=onNodeWithText(text)
+    if(runCatching{node.assertIsDisplayed()}.isFailure)node.performScrollTo()
+    node.performClick()
 }
 internal fun ComposeContentTestRule.clickReadyDescription(description: String) {
     waitUntil(40_000){onAllNodesWithContentDescription(description).fetchSemanticsNodes().any{!it.config.contains(SemanticsProperties.Disabled)}}
-    onNodeWithContentDescription(description).performScrollTo().performClick()
+    val node=onNodeWithContentDescription(description)
+    if(runCatching{node.assertIsDisplayed()}.isFailure)node.performScrollTo()
+    node.performClick()
+}
+internal fun grantVoicePermissions(){
+    val instrumentation=androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+    val context=instrumentation.targetContext
+    val permissions=mutableListOf("android.permission.RECORD_AUDIO")
+    if(android.os.Build.VERSION.SDK_INT>=33)permissions+="android.permission.POST_NOTIFICATIONS"
+    permissions.forEach{permission->
+        android.os.ParcelFileDescriptor.AutoCloseInputStream(instrumentation.uiAutomation.executeShellCommand("pm grant ${context.packageName} $permission")).use{it.readBytes()}
+    }
 }
 
 internal fun ComposeContentTestRule.confirmParkedIfNeeded() {

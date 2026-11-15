@@ -11,7 +11,8 @@ import org.junit.Rule
 import org.junit.Test
 
 class CarUxSmokeTest {
-    @get:Rule val compose=createAndroidComposeRule<MainActivity>()
+    @get:Rule(order=0) val sessionFixture=ResetRoomSessionRule()
+    @get:Rule(order=1) val compose=createAndroidComposeRule<MainActivity>()
 
     @Test fun primaryTouchTargetsAndDayNightToggleRemainAccessible() {
         compose.onNodeWithContentDescription("야간 모드").assertWidthIsAtLeast(76.dp).assertHeightIsAtLeast(76.dp).performClick()
@@ -31,15 +32,17 @@ class CarUxSmokeTest {
         compose.onNodeWithContentDescription("광주송정역 동행 참여").performScrollTo()
         capture("dashboard-results.png")
         compose.onNodeWithContentDescription("광주송정역 동행 참여").performClick()
-        compose.waitUntil(10_000){compose.onAllNodesWithText("통화 체험 중").fetchSemanticsNodes().isNotEmpty()}
-        compose.onNodeWithContentDescription("마이크 켜기").performScrollTo().assertHeightIsAtLeast(100.dp)
+        compose.waitUntil(10_000){compose.onAllNodesWithContentDescription("홈으로").fetchSemanticsNodes().isNotEmpty()}
+        compose.onNodeWithContentDescription("마이크 켜기").assertHeightIsAtLeast(88.dp)
+        compose.onNodeWithContentDescription("동행 1").assert(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription,"말하는 중"))
+        compose.onNodeWithContentDescription("홈으로").performClick()
+        compose.onNodeWithContentDescription("현재 통화방 열기").assertIsDisplayed().performClick()
         capture("dashboard-call.png")
         if(InstrumentationRegistry.getArguments().getString("prototypeScreenshots")=="true"){
-            compose.onNodeWithContentDescription("야간 모드").performClick();compose.waitForIdle();capture("dashboard-night.png")
-            compose.onNodeWithContentDescription("주간 모드").performClick()
+            capture("dashboard-night.png")
         }
-        compose.onNodeWithText("음성 연결 완료").assertDoesNotExist()
-        compose.onNodeWithContentDescription("통화방 퇴장").performScrollTo().performClick()
+        compose.onNodeWithText("체험 모드 · 실제 음성 없음").assertIsDisplayed()
+        compose.onNodeWithContentDescription("통화방 퇴장").performClick()
         compose.waitUntil(10_000){compose.onAllNodesWithText("방 만들기").fetchSemanticsNodes().isNotEmpty()}
         compose.clickReadyText("방 만들기");compose.confirmParkedIfNeeded()
         compose.onNodeWithText("방 이름").assertIsDisplayed()

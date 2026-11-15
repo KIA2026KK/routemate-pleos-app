@@ -8,7 +8,8 @@ import org.junit.Rule
 import org.junit.Test
 
 class TripRegistrationSmokeTest {
-    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+    @get:Rule(order=0) val sessionFixture=ResetRoomSessionRule()
+    @get:Rule(order=1) val compose = createAndroidComposeRule<MainActivity>()
 
     @Test fun unconfiguredServerDoesNotAllowRegistration() {
         assumeTrue(BuildConfig.BACKEND_URL.isBlank()&&!BuildConfig.PROTOTYPE_DEMO)
